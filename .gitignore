@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+.venv/
+venv/
+env/
+build/
+dist/
+*.spec
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log
+*.tmp
+*.bak
+*.png
+*.jpg
+*.jpeg
+!legacy/*.png
+!sample_data/*.xy
+!sample_data/*.txt
+sample_data/015-fecuqs-008-1200c_exported.xy
+sample_data/BaSn0.9Fe5.47O11.txt
+sample_data/M-type BaFe12O19 PDF 00-039-1433.txt

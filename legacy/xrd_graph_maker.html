@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>XRD Graph Maker</title>
+  <style>
+    :root{
+      --bg:#f6f6f3;
+      --panel:#ffffff;
+      --ink:#171717;
+      --muted:#606060;
+      --line:#d8d8d0;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+    header{padding:18px 22px;border-bottom:1px solid var(--line);background:#fff}
+    header h1{margin:0;font-size:22px;letter-spacing:.02em}
+    header p{margin:6px 0 0;color:var(--muted);font-size:13px;line-height:1.5}
+    main{display:grid;grid-template-columns:420px 1fr;gap:16px;padding:16px;min-height:calc(100vh - 76px)}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 10px rgba(0,0,0,.04)}
+    .controls{padding:16px;overflow:auto;max-height:calc(100vh - 108px)}
+    .chartwrap{padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+    fieldset{border:1px solid var(--line);border-radius:12px;margin:0 0 14px;padding:12px}
+    legend{font-weight:700;font-size:13px;padding:0 6px}
+    label{display:block;margin:8px 0 4px;font-size:13px;font-weight:600}
+    input[type="number"],input[type="text"],select,textarea{width:100%;border:1px solid #cfcfc8;border-radius:8px;padding:8px;background:#fff;font:inherit;font-size:13px}
+    input[type="file"]{width:100%;font-size:12px}
+    input[type="color"]{width:44px;height:34px;border:1px solid #d3d3ca;border-radius:8px;padding:2px;background:#fff}
+    textarea{min-height:72px;resize:vertical}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+    .row{display:flex;gap:8px;align-items:center;margin:8px 0}
+    .row input[type="checkbox"]{transform:translateY(1px)}
+    button{border:0;border-radius:10px;background:#111;color:#fff;padding:9px 12px;font-weight:700;cursor:pointer;font-size:13px}
+    button.secondary{background:#efefe8;color:#111;border:1px solid #d4d4ca}
+    button:disabled{opacity:.45;cursor:not-allowed}
+    .buttonbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    #svgHost{width:100%;min-height:560px;border:1px solid var(--line);border-radius:12px;background:#fff;display:grid;place-items:center;overflow:auto}
+    #svgHost svg{max-width:100%;height:auto;display:block}
+    .status{font-size:13px;color:var(--muted);line-height:1.55}
+    .small{font-size:12px;color:var(--muted);line-height:1.55}
+    table{border-collapse:collapse;width:100%;font-size:12px;background:#fff}
+    th,td{border-bottom:1px solid #e9e9e2;padding:6px 8px;text-align:left;vertical-align:middle}
+    th{background:#f4f4ee;position:sticky;top:0;z-index:1}
+    .tables{display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:180px}
+    .tablebox{border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:260px;background:#fff}
+    .editbox{border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:240px;background:#fff}
+    .pill{display:inline-block;border-radius:999px;background:#f1f1ea;border:1px solid #ddd;padding:2px 7px;font-size:12px;margin-right:4px;margin-bottom:5px}
+    .mono{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
+    .mini{font-size:11px;color:#666}
+    .right{text-align:right}
+    .center{text-align:center}
+    .stickyNote{padding:8px 10px;border:1px dashed #d9d3b0;background:#fffbea;border-radius:10px;font-size:12px;line-height:1.5;color:#6a5d23}
+    @media(max-width:1080px){main{grid-template-columns:1fr}.controls{max-height:none}.tables{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>XRD Graph Maker</h1>
+    <p>測定データと参照ピークデータを読み込み、規格化・積み上げ表示・複数参照相の比較・配向フィルタ付きのXRD図をブラウザ内で作成します。</p>
+  </header>
+  <main>
+    <section class="card controls">
+      <fieldset>
+        <legend>1. ファイル読み込み</legend>
+        <label>測定データ .xy / .txt / .csv（複数可、2列: 2θ intensity）</label>
+        <input id="measFiles" type="file" multiple accept=".xy,.txt,.csv,.dat" />
+        <label>参照ピーク .txt / .csv（複数可、d 2θ I fix h k l 形式など）</label>
+        <input id="refFiles" type="file" multiple accept=".txt,.csv,.dat" />
+        <div class="buttonbar">
+          <button id="loadBtn">読み込み</button>
+          <button id="demoBtn" class="secondary">内蔵デモ</button>
+          <button id="clearBtn" class="secondary">クリア</button>
+        </div>
+        <p class="small">測定データは表示範囲内で <span class="mono">min→0, max→100</span> に規格化します。参照データも各相ごとに最大強度100へ自動規格化します。</p>
+      </fieldset>
+
+      <fieldset>
+        <legend>2. 読み込み済みデータの表示名</legend>
+        <div class="stickyNote">グラフ中のラベルはここで指定した「表示名」を使います。空欄ならグラフ上には表示しません。ファイル名そのものを出したくない場合は、そのまま空欄のままでOKです。</div>
+        <label>測定データ</label>
+        <div class="editbox"><table id="measEditTable"><thead><tr><th class="center">使用</th><th>元ファイル</th><th>表示名</th></tr></thead><tbody></tbody></table></div>
+        <label style="margin-top:10px">参照データ</label>
+        <div class="editbox"><table id="refEditTable"><thead><tr><th class="center">使用</th><th>色</th><th>元ファイル</th><th>表示名</th></tr></thead><tbody></tbody></table></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>3. 表示範囲・積み上げ</legend>
+        <div class="grid2">
+          <div><label>2θ min</label><input id="xMin" type="number" value="20" step="0.1"></div>
+          <div><label>2θ max</label><input id="xMax" type="number" value="70" step="0.1"></div>
+        </div>
+        <div class="grid2">
+          <div><label>縦オフセット</label><input id="offset" type="number" value="120" step="5"></div>
+          <div><label>下余白</label><input id="yPad" type="number" value="18" step="1"></div>
+        </div>
+        <div class="grid2">
+          <div><label>ファイル順</label><select id="order"><option value="bottom">1個目を下に描く</option><option value="top">1個目を上に描く</option></select></div>
+          <div><label>ラベル位置</label><select id="labelPos"><option value="right">右側</option><option value="left">左側</option><option value="none">なし</option></select></div>
+        </div>
+        <div class="row"><input id="normalize" type="checkbox" checked><label for="normalize" style="margin:0;font-weight:500">測定データを規格化する</label></div>
+        <div class="row"><input id="baseline" type="checkbox" checked><label for="baseline" style="margin:0;font-weight:500">表示範囲内の最小値を基準にする</label></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>4. 参照ピーク・配向設定</legend>
+        <div class="grid2">
+          <div><label>表示する参照相</label><select id="refSelect"><option value="all">すべて表示</option></select></div>
+          <div><label>配向フィルタ</label><select id="orientationMode">
+            <option value="all">すべて</option>
+            <option value="h00">h00 のみ</option>
+            <option value="0k0">0k0 のみ</option>
+            <option value="00l">00l のみ</option>
+            <option value="hk0">hk0 のみ</option>
+            <option value="h0l">h0l のみ</option>
+            <option value="0kl">0kl のみ</option>
+          </select></div>
+        </div>
+        <div class="grid3">
+          <div><label>許容差 / deg</label><input id="tol" type="number" value="0.20" step="0.01"></div>
+          <div><label>最小参照強度</label><input id="refMinI" type="number" value="0" step="1" min="0" max="100"></div>
+          <div><label>マーカーサイズ</label><input id="markerSize" type="number" value="15" step="1"></div>
+        </div>
+        <div class="grid2">
+          <div><label>ピーク上距離</label><input id="markerLift" type="number" value="15" step="1"></div>
+          <div><label>強いピークの hkl 表示閾値</label><input id="hklMinI" type="number" value="60" step="1" min="0" max="100"></div>
+        </div>
+        <div class="row"><input id="showMarkers" type="checkbox" checked><label for="showMarkers" style="margin:0;font-weight:500">参照マーカーを表示</label></div>
+        <div class="row"><input id="markerEach" type="checkbox" checked><label for="markerEach" style="margin:0;font-weight:500">各測定データにマーカーを表示</label></div>
+        <div class="row"><input id="showSticks" type="checkbox" checked><label for="showSticks" style="margin:0;font-weight:500">下部に参照スティックを表示（複数参照相は別段に並べる）</label></div>
+        <div class="row"><input id="hklLabel" type="checkbox"><label for="hklLabel" style="margin:0;font-weight:500">強い参照ピークに hkl を表示</label></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>5. 図の体裁</legend>
+        <div class="grid2">
+          <div><label>線幅</label><input id="lineWidth" type="number" value="1.4" step="0.1"></div>
+          <div><label>フォントサイズ</label><input id="fontSize" type="number" value="34" step="1"></div>
+        </div>
+        <div class="grid2">
+          <div><label>図幅 px</label><input id="svgW" type="number" value="960" step="10"></div>
+          <div><label>図高 px</label><input id="svgH" type="number" value="760" step="10"></div>
+        </div>
+        <div class="row"><input id="showYTicks" type="checkbox"><label for="showYTicks" style="margin:0;font-weight:500">Y軸数値を表示</label></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>6. 保存</legend>
+        <div class="buttonbar">
+          <button id="renderBtn">再描画</button>
+          <button id="saveSvg" class="secondary">SVG保存</button>
+          <button id="savePng" class="secondary">PNG保存</button>
+          <button id="saveCsv" class="secondary">解析CSV</button>
+        </div>
+        <p class="small">複数の測定データは縦方向に積み上げて比較できます。WordやPowerPointへ貼るならSVGがおすすめです。</p>
+      </fieldset>
+      <div id="status" class="status"></div>
+    </section>
+
+    <section class="card chartwrap">
+      <div id="svgHost"></div>
+      <div class="tables">
+        <div class="tablebox"><table id="summaryTable"><thead><tr><th>sample</th><th>検出ピーク</th><th>一致</th><th>未説明</th><th>一致率</th></tr></thead><tbody></tbody></table></div>
+        <div class="tablebox"><table id="peakTable"><thead><tr><th>sample</th><th>peak 2θ</th><th>I_norm</th><th>nearest ref</th><th>phase</th><th>Δ2θ</th><th>hkl</th></tr></thead><tbody></tbody></table></div>
+      </div>
+    </section>
+  </main>
+
+<script>
+'use strict';
+const state = { measured: [], refs: [], analyses: [], lastSvgText: '' };
+const ns = 'http://www.w3.org/2000/svg';
+const palette = ['#e11d48','#2563eb','#059669','#8b5cf6','#d97706','#0f766e','#dc2626','#7c3aed'];
+const $ = id => document.getElementById(id);
+
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function num(v, fallback=0){ const x = Number(v); return Number.isFinite(x) ? x : fallback; }
+function downloadText(filename, text, type='text/plain'){
+  const blob = new Blob([text], {type});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+function cleanName(name){ return (name || 'sample').replace(/\.[^.]+$/, '').replace(/[_-]+exported$/i,''); }
+async function readFile(file){ return await file.text(); }
+
+function parseMeasured(text, name='sample'){
+  const pts = [];
+  for(const raw of text.split(/\r?\n/)){
+    const line = raw.trim();
+    if(!line || line.startsWith('#')) continue;
+    const vals = line.replace(/,/g,' ').split(/\s+/).map(Number).filter(Number.isFinite);
+    if(vals.length >= 2){
+      const x = vals[0], y = vals[1];
+      if(x > -100 && x < 200 && Number.isFinite(y)) pts.push({x,y});
+    }
+  }
+  pts.sort((a,b)=>a.x-b.x);
+  return {name: cleanName(name), rawName: name, displayName: '', visible: true, points: pts, norm: []};
+}
+
+function parseReference(text, name='reference', color='#e11d48'){
+  const peaks = [];
+  for(const raw of text.split(/\r?\n/)){
+    const line = raw.trim();
+    if(!line || line.startsWith('#') || /^[a-zA-Zａ-ｚＡ-Ｚ]/.test(line)) continue;
+    const vals = line.replace(/,/g,' ').split(/\s+/).map(Number).filter(Number.isFinite);
+    if(vals.length >= 3){
+      let d = null, angle = null, inten = null, h = null, k = null, l = null;
+      if(vals[1] >= 1 && vals[1] <= 180){
+        d = vals[0]; angle = vals[1]; inten = vals[2];
+        if(vals.length >= 7){ h = vals[4]; k = vals[5]; l = vals[6]; }
+        else if(vals.length >= 6){ h = vals[3]; k = vals[4]; l = vals[5]; }
+      } else {
+        angle = vals[0]; inten = vals[1];
+        if(vals.length >= 5){ h = vals[2]; k = vals[3]; l = vals[4]; }
+      }
+      if(Number.isFinite(angle) && angle > 0 && angle < 180 && Number.isFinite(inten) && inten >= 0){
+        peaks.push({d, angle, intensity: inten, h, k, l, phase: cleanName(name)});
+      }
+    }
+  }
+  const maxI = Math.max(1, ...peaks.map(p => p.intensity));
+  peaks.forEach(p => p.iNorm = p.intensity / maxI * 100);
+  return {name: cleanName(name), rawName: name, displayName: '', visible: true, color, peaks};
+}
+
+function normalizeTrace(trace){
+  const xMin = num($('xMin').value,20), xMax = num($('xMax').value,70);
+  const inRange = trace.points.filter(p => p.x >= xMin && p.x <= xMax);
+  const target = $('baseline').checked && inRange.length ? inRange : trace.points;
+  const ys = target.map(p => p.y);
+  const minY = ys.length ? Math.min(...ys) : 0;
+  const maxY = ys.length ? Math.max(...ys) : 1;
+  const span = Math.max(1e-12, maxY - minY);
+  trace.norm = trace.points.map(p => ({x:p.x, y: $('normalize').checked ? (p.y - minY) / span * 100 : p.y}));
+}
+
+function interpY(points, x){
+  if(!points.length) return 0;
+  if(x <= points[0].x) return points[0].y;
+  if(x >= points[points.length-1].x) return points[points.length-1].y;
+  let lo = 0, hi = points.length - 1;
+  while(hi - lo > 1){ const mid = (lo + hi) >> 1; if(points[mid].x < x) lo = mid; else hi = mid; }
+  const a = points[lo], b = points[hi];
+  const t = (x - a.x) / (b.x - a.x || 1);
+  return a.y + (b.y - a.y) * t;
+}
+
+function movingAverage(arr, win=5){
+  const out = new Array(arr.length);
+  const half = Math.floor(win/2);
+  for(let i=0;i<arr.length;i++){
+    let s=0,c=0;
+    for(let j=Math.max(0,i-half); j<=Math.min(arr.length-1,i+half); j++){
+      s += arr[j].y; c++;
+    }
+    out[i] = {x:arr[i].x, y:s/c};
+  }
+  return out;
+}
+
+function detectPeaks(points, threshold=7, minSep=0.18){
+  const xMin = num($('xMin').value,20), xMax = num($('xMax').value,70);
+  const arr = movingAverage(points.filter(p => p.x >= xMin && p.x <= xMax), 5);
+  const candidates = [];
+  for(let i=2;i<arr.length-2;i++){
+    const y = arr[i].y;
+    if(y < threshold) continue;
+    if(y > arr[i-1].y && y >= arr[i+1].y && y > arr[i-2].y && y >= arr[i+2].y){
+      const localMin = Math.min(arr[i-2].y, arr[i-1].y, arr[i+1].y, arr[i+2].y);
+      const prominence = y - localMin;
+      if(prominence >= 2.5) candidates.push({x: arr[i].x, y});
+    }
+  }
+  candidates.sort((a,b)=>b.y-a.y);
+  const selected = [];
+  for(const c of candidates){
+    if(!selected.some(p => Math.abs(p.x - c.x) < minSep)) selected.push(c);
+  }
+  return selected.sort((a,b)=>a.x-b.x);
+}
+
+function hklText(p){
+  if(p.h == null || p.k == null || p.l == null) return '';
+  return `${p.h}${p.k}${p.l}`.replace(/\.0/g,'');
+}
+
+function orientationPass(p){
+  const mode = $('orientationMode').value;
+  const h = num(p.h, NaN), k = num(p.k, NaN), l = num(p.l, NaN);
+  if(mode === 'all') return true;
+  if(!Number.isFinite(h) || !Number.isFinite(k) || !Number.isFinite(l)) return false;
+  if(mode === 'h00') return h !== 0 && k === 0 && l === 0;
+  if(mode === '0k0') return h === 0 && k !== 0 && l === 0;
+  if(mode === '00l') return h === 0 && k === 0 && l !== 0;
+  if(mode === 'hk0') return h !== 0 && k !== 0 && l === 0;
+  if(mode === 'h0l') return h !== 0 && k === 0 && l !== 0;
+  if(mode === '0kl') return h === 0 && k !== 0 && l !== 0;
+  return true;
+}
+
+function visibleMeasured(){ return state.measured.filter(m => m.visible && m.points.length); }
+function selectedRefSets(){
+  const v = $('refSelect').value;
+  const minI = num($('refMinI').value, 0);
+  return state.refs.filter(r => r.visible && (v === 'all' || r.name === v)).map(r => ({
+    ...r,
+    peaks: r.peaks.filter(p => p.iNorm >= minI && orientationPass(p))
+  })).filter(r => r.peaks.length);
+}
+function selectedRefPeaks(){ return selectedRefSets().flatMap(r => r.peaks.map(p => ({...p, color: r.color, phaseLabel: r.displayName || r.name}))); }
+
+function nearestRef(x, refs, tol){
+  let best = null, dBest = Infinity;
+  for(const r of refs){
+    const d = Math.abs(r.angle - x);
+    if(d < dBest){ best = r; dBest = d; }
+  }
+  return dBest <= tol ? {ref: best, delta: best.angle - x} : null;
+}
+
+function analyze(){
+  const tol = num($('tol').value,0.2);
+  const refs = selectedRefPeaks();
+  state.analyses = visibleMeasured().map(tr => {
+    const peaks = detectPeaks(tr.norm, 7, Math.max(0.10, tol*0.8));
+    const rows = peaks.map(pk => ({...pk, match: nearestRef(pk.x, refs, tol)}));
+    return {sample: tr.displayName || tr.name, peaks: rows, matched: rows.filter(r=>r.match).length, unknown: rows.filter(r=>!r.match).length};
+  });
+  renderTables();
+}
+
+function renderTables(){
+  const sumBody = $('summaryTable').querySelector('tbody');
+  sumBody.innerHTML = '';
+  for(const a of state.analyses){
+    const n = a.peaks.length, rate = n ? a.matched / n * 100 : 0;
+    sumBody.insertAdjacentHTML('beforeend', `<tr><td>${esc(a.sample)}</td><td>${n}</td><td>${a.matched}</td><td>${a.unknown}</td><td>${rate.toFixed(1)}%</td></tr>`);
+  }
+  const peakBody = $('peakTable').querySelector('tbody');
+  peakBody.innerHTML = '';
+  for(const a of state.analyses){
+    for(const p of a.peaks){
+      const m = p.match;
+      peakBody.insertAdjacentHTML('beforeend', `<tr><td>${esc(a.sample)}</td><td>${p.x.toFixed(3)}</td><td>${p.y.toFixed(1)}</td><td>${m ? m.ref.angle.toFixed(3) : 'Unknown'}</td><td>${m ? esc(m.ref.phaseLabel || m.ref.phase) : ''}</td><td>${m ? m.delta.toFixed(3) : ''}</td><td>${m ? esc(hklText(m.ref)) : ''}</td></tr>`);
+    }
+  }
+}
+
+function renderEditTables(){
+  const mb = $('measEditTable').querySelector('tbody');
+  mb.innerHTML = '';
+  state.measured.forEach((m, i) => {
+    mb.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td class="center"><input data-type="meas-use" data-i="${i}" type="checkbox" ${m.visible ? 'checked' : ''}></td>
+        <td><div>${esc(m.rawName)}</div><div class="mini mono">${esc(m.name)}</div></td>
+        <td><input data-type="meas-label" data-i="${i}" type="text" value="${esc(m.displayName)}" placeholder="例: x = 0.2"></td>
+      </tr>`);
+  });
+  const rb = $('refEditTable').querySelector('tbody');
+  rb.innerHTML = '';
+  state.refs.forEach((r, i) => {
+    rb.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td class="center"><input data-type="ref-use" data-i="${i}" type="checkbox" ${r.visible ? 'checked' : ''}></td>
+        <td class="center"><input data-type="ref-color" data-i="${i}" type="color" value="${esc(r.color)}"></td>
+        <td><div>${esc(r.rawName)}</div><div class="mini mono">${esc(r.name)}</div></td>
+        <td><input data-type="ref-label" data-i="${i}" type="text" value="${esc(r.displayName)}" placeholder="例: α-Fe2O3"></td>
+      </tr>`);
+  });
+}
+
+function makeSvg(){
+  const measured = visibleMeasured();
+  measured.forEach(normalizeTrace);
+  const refSets = selectedRefSets();
+  const refs = refSets.flatMap(r => r.peaks.map(p => ({...p, color: r.color, phaseLabel: r.displayName || r.name})));
+  const xMin = num($('xMin').value,20), xMax = num($('xMax').value,70);
+  const offset = num($('offset').value,120), yPad = num($('yPad').value,18);
+  const svgW = num($('svgW').value,960), svgH = num($('svgH').value,760);
+  const fontSize = num($('fontSize').value,34), lineWidth = num($('lineWidth').value,1.4);
+  const markerSize = num($('markerSize').value,15), markerLift = num($('markerLift').value,15);
+  const hklMinI = num($('hklMinI').value,60);
+  const n = Math.max(1, measured.length);
+  const showMarkers = $('showMarkers').checked;
+  const markerEach = $('markerEach').checked;
+  const showSticks = $('showSticks').checked;
+  const hklLabel = $('hklLabel').checked;
+  const showYTicks = $('showYTicks').checked;
+  const labelPos = $('labelPos').value;
+  const orderTop = $('order').value === 'top';
+
+  const stickRows = showSticks ? refSets.length : 0;
+  const stickBand = 34;
+  const yMin = -(stickRows * stickBand + yPad);
+  const yMax = 100 + offset * (n - 1) + 38;
+  const margin = {l: 122, r: 90, t: 42, b: 118};
+  const plotW = svgW - margin.l - margin.r;
+  const plotH = svgH - margin.t - margin.b;
+  const sx = x => margin.l + (x - xMin) / (xMax - xMin) * plotW;
+  const sy = y => margin.t + (yMax - y) / (yMax - yMin) * plotH;
+
+  const parts = [];
+  parts.push(`<svg xmlns="${ns}" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" role="img">`);
+  parts.push(`<rect width="100%" height="100%" fill="white"/>`);
+  parts.push(`<style>
+    text{font-family:'Times New Roman','Yu Mincho',serif;fill:#000}
+    .axis{stroke:#000;stroke-width:2;fill:none}
+    .trace{fill:none;stroke:#000;stroke-linejoin:round;stroke-linecap:round}
+    .tick{stroke:#000;stroke-width:2}
+    .marker{stroke-width:1}
+    .stick{stroke-width:1.4}
+  </style>`);
+  parts.push(`<rect class="axis" x="${margin.l}" y="${margin.t}" width="${plotW}" height="${plotH}"/>`);
+
+  const startTick = Math.ceil(xMin / 10) * 10;
+  for(let x = startTick; x <= xMax + 1e-9; x += 10){
+    const X = sx(x);
+    parts.push(`<line class="tick" x1="${X}" y1="${margin.t + plotH}" x2="${X}" y2="${margin.t + plotH - 32}"/>`);
+    parts.push(`<line class="tick" x1="${X}" y1="${margin.t}" x2="${X}" y2="${margin.t + 32}"/>`);
+    parts.push(`<text x="${X}" y="${margin.t + plotH + 48}" font-size="${fontSize * 1.12}" text-anchor="middle">${x}</text>`);
+  }
+  if(showYTicks){
+    for(let y = 0; y <= 100; y += 50){
+      const Y = sy(y);
+      parts.push(`<line class="tick" x1="${margin.l}" y1="${Y}" x2="${margin.l + 18}" y2="${Y}"/>`);
+      parts.push(`<text x="${margin.l - 14}" y="${Y + 7}" font-size="${fontSize * 0.55}" text-anchor="end">${y}</text>`);
+    }
+  }
+
+  const xLabelY = svgH - 30;
+  parts.push(`<text x="${margin.l + plotW * 0.43}" y="${xLabelY}" font-size="${fontSize * 1.10}" text-anchor="middle"><tspan font-style="italic">2θ</tspan><tspan>(deg.)</tspan></text>`);
+  parts.push(`<text x="${margin.l + plotW * 0.85}" y="${xLabelY}" font-size="${fontSize * 0.98}" text-anchor="middle">Cu-Kα</text>`);
+  parts.push(`<text transform="translate(48,${margin.t + plotH / 2}) rotate(-90)" font-size="${fontSize * 1.08}" text-anchor="middle">Intensity (arb. units)</text>`);
+
+  if(showSticks){
+    refSets.forEach((set, rowIdx) => {
+      const base = -stickBand * (rowIdx + 1) + 6;
+      for(const r of set.peaks){
+        const X = sx(r.angle);
+        const y0 = sy(base);
+        const y1 = sy(base + r.iNorm * 0.24);
+        parts.push(`<line class="stick" x1="${X}" y1="${y0}" x2="${X}" y2="${y1}" stroke="${set.color}"/>`);
+      }
+      const label = set.displayName || set.name;
+      parts.push(`<text x="${margin.l + 8}" y="${sy(base + 10)}" font-size="${fontSize * 0.36}" fill="${set.color}">${esc(label)} (max=100)</text>`);
+    });
+  }
+
+  measured.forEach((tr, fileIndex) => {
+    const stackIndex = orderTop ? (n - 1 - fileIndex) : fileIndex;
+    const base = stackIndex * offset;
+    const pts = tr.norm.filter(p => p.x >= xMin && p.x <= xMax);
+    if(pts.length){
+      const d = pts.map((p,i) => `${i ? 'L' : 'M'}${sx(p.x).toFixed(2)},${sy(p.y + base).toFixed(2)}`).join(' ');
+      parts.push(`<path class="trace" d="${d}" stroke-width="${lineWidth}"/>`);
+    }
+    const label = (tr.displayName || '').trim();
+    if(labelPos !== 'none' && label){
+      const lx = labelPos === 'right' ? margin.l + plotW - 10 : margin.l + 10;
+      const anchor = labelPos === 'right' ? 'end' : 'start';
+      parts.push(`<text x="${lx}" y="${sy(base + 72)}" font-size="${fontSize * 1.00}" text-anchor="${anchor}">${esc(label)}</text>`);
+    }
+    if(showMarkers && refs.length && (markerEach || fileIndex === n - 1)){
+      refs.forEach(r => {
+        const X = sx(r.angle);
+        const yData = interpY(tr.norm, r.angle);
+        let yM = Math.min(base + 100 + 22, base + yData + markerLift);
+        if(!Number.isFinite(yM)) yM = base + 100;
+        const Y = sy(yM);
+        const s = markerSize * (0.78 + 0.22 * Math.sqrt((r.iNorm || 100) / 100));
+        const tri = `${X.toFixed(2)},${(Y+s*0.62).toFixed(2)} ${(X-s*0.72).toFixed(2)},${(Y-s*0.55).toFixed(2)} ${(X+s*0.72).toFixed(2)},${(Y-s*0.55).toFixed(2)}`;
+        parts.push(`<polygon class="marker" points="${tri}" fill="${r.color}" stroke="${r.color}"/>`);
+        if(hklLabel && r.iNorm >= hklMinI && fileIndex === n - 1){
+          parts.push(`<text x="${X}" y="${(Y - s - 4).toFixed(2)}" font-size="${fontSize * 0.34}" text-anchor="middle">${esc(hklText(r))}</text>`);
+        }
+      });
+    }
+  });
+
+  parts.push(`</svg>`);
+  return parts.join('\n');
+}
+
+function render(){
+  renderEditTables();
+  const refSelect = $('refSelect');
+  const prev = refSelect.value;
+  refSelect.innerHTML = '<option value="all">すべて表示</option>' + state.refs.map(r => `<option value="${esc(r.name)}">${esc(r.displayName || r.name)}</option>`).join('');
+  if([...refSelect.options].some(o => o.value === prev)) refSelect.value = prev;
+
+  const measured = visibleMeasured();
+  if(!measured.length){
+    $('svgHost').innerHTML = '<div class="status">測定データを読み込んでください。</div>';
+    $('summaryTable').querySelector('tbody').innerHTML = '';
+    $('peakTable').querySelector('tbody').innerHTML = '';
+    $('status').textContent = '';
+    return;
+  }
+  state.lastSvgText = makeSvg();
+  $('svgHost').innerHTML = state.lastSvgText;
+  analyze();
+  const nPts = state.measured.reduce((s,t)=>s+t.points.length,0);
+  const nRef = state.refs.reduce((s,r)=>s+r.peaks.length,0);
+  $('status').innerHTML = `<span class="pill">測定 ${measured.length}件 / ${nPts.toLocaleString()}点</span><span class="pill">参照 ${selectedRefSets().length}相 / ${nRef}ピーク</span><br>現在の描画範囲: <span class="mono">${$('xMin').value}–${$('xMax').value} deg</span> / 測定値・参照値とも相ごとに max = 100 へ規格化`;
+}
+
+async function loadFiles(){
+  const mf = [...$('measFiles').files];
+  const rf = [...$('refFiles').files];
+  if(!mf.length && !rf.length){ render(); return; }
+  state.measured = [];
+  state.refs = [];
+  for(const f of mf){
+    const text = await readFile(f);
+    const tr = parseMeasured(text, f.name);
+    if(tr.points.length) state.measured.push(tr);
+  }
+  for(let i=0;i<rf.length;i++){
+    const f = rf[i];
+    const text = await readFile(f);
+    const ref = parseReference(text, f.name, palette[i % palette.length]);
+    if(ref.peaks.length) state.refs.push(ref);
+  }
+  render();
+}
+
+function useDemo(){
+  const xs = [];
+  for(let x=20; x<=70.0001; x+=0.04) xs.push(x);
+  const qsRef = [24.907,25.510,30.168,30.463,30.797,35.656,39.893,53.751,57.677,62.681,63.348];
+  const minorRef = [28.6,33.1,36.9,49.5,54.8,57.0];
+  function gauss(x,mu,a,w){ return a*Math.exp(-0.5*((x-mu)/w)**2); }
+  state.measured = [-0.1,0,0.2,0.5,-0.1,0].map((val,i)=>{
+    const pts = xs.map(x=>{
+      let y = 8 + 1.2*Math.sin(x*.8 + i*0.3);
+      qsRef.forEach((mu,j)=> y += gauss(x, mu + (i-2)*0.012, [8,12,52,100,18,65,32,58,30,34,29][j], 0.055+0.02*(j%3)) );
+      minorRef.forEach((mu,j)=> y += gauss(x, mu + (i-2)*0.01, [8,10,7,5,6,4][j], 0.10) );
+      y += (Math.random() - 0.5) * 1.1;
+      return {x,y};
+    });
+    return {name:`demo_${i+1}`, rawName:`sample_${i+1}.xy`, displayName:`x = ${val}`, visible:true, points:pts, norm:[]};
+  });
+  state.refs = [
+    {name:'BaSn0.9Fe5.47O11', rawName:'BaSn0.9Fe5.47O11.txt', displayName:'QS phase', visible:true, color:palette[0], peaks:qsRef.map((angle,i)=>({angle,intensity:[6,10,65,100,16,70,31,61,31,35,35][i], iNorm:[6,10,65,100,16,70,31,61,31,35,35][i], h:null,k:null,l:null, phase:'QS phase'}))},
+    {name:'Minor phase', rawName:'minor_phase.txt', displayName:'minor phase', visible:true, color:palette[1], peaks:minorRef.map((angle,i)=>({angle,intensity:[100,80,60,40,45,35][i], iNorm:[100,80,60,40,45,35][i], h:[1,1,2,3,2,1][i], k:[0,1,0,1,2,1][i], l:[0,0,1,0,0,2][i], phase:'minor phase'}))}
+  ];
+  render();
+}
+
+function savePng(){
+  if(!state.lastSvgText) return;
+  const svg = new Blob([state.lastSvgText], {type:'image/svg+xml;charset=utf-8'});
+  const url = URL.createObjectURL(svg);
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width * 2;
+    canvas.height = img.height * 2;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.scale(2,2);
+    ctx.drawImage(img,0,0);
+    URL.revokeObjectURL(url);
+    canvas.toBlob(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'xrd_graph.png';
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+    }, 'image/png');
+  };
+  img.src = url;
+}
+
+function saveCsv(){
+  const rows = [['sample','peak_2theta','intensity_norm','nearest_ref_2theta','phase','delta_2theta','h','k','l','matched']];
+  for(const a of state.analyses){
+    for(const p of a.peaks){
+      const m = p.match;
+      rows.push([
+        a.sample,
+        p.x.toFixed(5),
+        p.y.toFixed(3),
+        m ? m.ref.angle.toFixed(5) : '',
+        m ? (m.ref.phaseLabel || m.ref.phase || '') : '',
+        m ? m.delta.toFixed(5) : '',
+        m ? (m.ref.h ?? '') : '',
+        m ? (m.ref.k ?? '') : '',
+        m ? (m.ref.l ?? '') : '',
+        Boolean(m)
+      ]);
+    }
+  }
+  downloadText('xrd_peak_analysis.csv', rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n'), 'text/csv');
+}
+
+function handleEditEvent(e){
+  const t = e.target;
+  const type = t.dataset.type;
+  const i = Number(t.dataset.i);
+  if(!type || !Number.isFinite(i)) return;
+  if(type === 'meas-use') state.measured[i].visible = t.checked;
+  if(type === 'meas-label') state.measured[i].displayName = t.value;
+  if(type === 'ref-use') state.refs[i].visible = t.checked;
+  if(type === 'ref-label') state.refs[i].displayName = t.value;
+  if(type === 'ref-color') state.refs[i].color = t.value;
+  render();
+}
+
+$('measEditTable').addEventListener('input', handleEditEvent);
+$('measEditTable').addEventListener('change', handleEditEvent);
+$('refEditTable').addEventListener('input', handleEditEvent);
+$('refEditTable').addEventListener('change', handleEditEvent);
+['xMin','xMax','offset','yPad','order','labelPos','normalize','baseline','refSelect','orientationMode','tol','refMinI','markerSize','markerLift','hklMinI','showMarkers','markerEach','showSticks','hklLabel','lineWidth','fontSize','svgW','svgH','showYTicks'].forEach(id => {
+  $(id).addEventListener('input', render);
+  $(id).addEventListener('change', render);
+});
+$('loadBtn').addEventListener('click', loadFiles);
+$('demoBtn').addEventListener('click', useDemo);
+$('clearBtn').addEventListener('click', ()=>{ state.measured=[]; state.refs=[]; state.analyses=[]; state.lastSvgText=''; render(); });
+$('renderBtn').addEventListener('click', render);
+$('saveSvg').addEventListener('click', ()=> state.lastSvgText && downloadText('xrd_graph.svg', state.lastSvgText, 'image/svg+xml'));
+$('savePng').addEventListener('click', savePng);
+$('saveCsv').addEventListener('click', saveCsv);
+render();
+</script>
+</body>
+</html>
