@@ -2,6 +2,16 @@
 
 LabPlot Studio is a local desktop analysis app starter for laboratory measurement data.
 
+## HTML standalone version
+
+If you want the simple browser-based version, open:
+
+```text
+index.html
+```
+
+This file works as a standalone HTML app. It does not require Python. It supports measured XRD loading, reference peak loading, reference labels/colors/markers, manual peak hiding, candidate phase ranking, stacked comparison, SVG export, PNG export, and CSV export.
+
 The first implemented workflow is manual XRD identification:
 
 - load measured `.xy`, `.txt`, `.csv`, `.dat` files

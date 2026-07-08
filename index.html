@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>XRD Graph Maker</title>
+  <style>
+    :root{--bg:#f3f3f0;--panel:#fff;--ink:#111;--muted:#5b5b5b;--line:#cfcfc8}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+    header{height:56px;padding:10px 14px;background:#fff;border-bottom:1px solid var(--line)}
+    h1{margin:0;font-size:20px}
+    header p{margin:2px 0 0;color:var(--muted);font-size:12px}
+    main{display:grid;grid-template-columns:390px 1fr;gap:10px;padding:10px;height:calc(100vh - 56px)}
+    aside,section{background:var(--panel);border:1px solid var(--line)}
+    aside{padding:10px;overflow:auto}
+    section{display:grid;grid-template-rows:1fr 240px;min-width:0}
+    fieldset{border:1px solid var(--line);margin:0 0 10px;padding:10px}
+    legend{font-size:13px;font-weight:700}
+    label{display:block;margin:7px 0 3px;font-size:12px;font-weight:600}
+    input,select,button{font:inherit;font-size:12px}
+    input[type="number"],input[type="text"],select{width:100%;border:1px solid #bbb;padding:5px;background:#fff}
+    input[type="file"]{width:100%;font-size:12px}
+    button{border:1px solid #aaa;background:#f7f7f7;padding:6px 8px;cursor:pointer}
+    button.primary{background:#111;color:#fff;border-color:#111}
+    .row{display:flex;gap:6px;align-items:center}
+    .row>*{flex:1}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+    .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+    .buttons{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+    .buttons button{flex:1}
+    .small{font-size:11px;color:var(--muted);line-height:1.45}
+    .list{height:92px;border:1px solid #bbb;overflow:auto;background:#fff;font-size:12px}
+    .item{padding:3px 5px;border-bottom:1px solid #eee;cursor:pointer}
+    .item.active{background:#1177cc;color:#fff}
+    #chart{overflow:auto;background:#fff;display:grid;place-items:center}
+    #chart svg{max-width:100%;height:auto}
+    .tables{overflow:auto;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr}
+    table{border-collapse:collapse;width:100%;font-size:12px;background:#fff}
+    th,td{border-bottom:1px solid #eee;border-right:1px solid #eee;padding:4px 6px;white-space:nowrap}
+    th{position:sticky;top:0;background:#f4f4f4;z-index:1}
+    tr.selected{background:#dcecff}
+    @media(max-width:980px){main{grid-template-columns:1fr;height:auto}section{height:860px}}
+  </style>
+</head>
+<body>
+<header>
+  <h1>XRD Graph Maker</h1>
+  <p>単体HTML版。測定XRDと参照ピークを読み込み、手動同定・候補相ランキング・縦積み比較・SVG/PNG出力を行います。</p>
+</header>
+<main>
+  <aside>
+    <fieldset>
+      <legend>1. ファイル</legend>
+      <label>測定データ .xy / .txt / .csv 複数可</label>
+      <input id="measFiles" type="file" multiple accept=".xy,.txt,.csv,.dat" />
+      <label>参照ピーク .txt / .csv 複数可</label>
+      <input id="refFiles" type="file" multiple accept=".txt,.csv,.dat" />
+      <div class="buttons">
+        <button class="primary" id="loadBtn">読み込み</button>
+        <button id="demoBtn">デモ</button>
+        <button id="clearBtn">クリア</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>2. 表示範囲</legend>
+      <div class="grid3">
+        <div><label>2θ min</label><input id="xMin" type="number" value="20" step="0.1"></div>
+        <div><label>2θ max</label><input id="xMax" type="number" value="70" step="0.1"></div>
+        <div><label>縦オフセット</label><input id="offset" type="number" value="120" step="5"></div>
+      </div>
+      <div class="grid3">
+        <div><label>許容差 / deg</label><input id="tol" type="number" value="0.20" step="0.01"></div>
+        <div><label>測定ピーク閾値</label><input id="minPeak" type="number" value="8" step="1"></div>
+        <div><label>参照強度閾値</label><input id="minRef" type="number" value="8" step="1"></div>
+      </div>
+      <div class="grid2">
+        <div><label>図幅 px</label><input id="svgW" type="number" value="1200" step="10"></div>
+        <div><label>図高 px</label><input id="svgH" type="number" value="900" step="10"></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label><input id="normalize" type="checkbox" checked> min→0, max→100規格化</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>3. 使用中の参照</legend>
+      <div id="refList" class="list"></div>
+      <label>表示名</label><input id="refLabel" type="text" placeholder="M-type / Z-type など">
+      <div class="grid2">
+        <div><label>色</label><input id="refColor" type="text" value="#1455d9"></div>
+        <div><label>記号</label><select id="refMarker">
+          <option value="circle">circle</option>
+          <option value="triangle_down">triangle_down</option>
+          <option value="triangle_up">triangle_up</option>
+          <option value="diamond">diamond</option>
+          <option value="square">square</option>
+          <option value="cross">cross</option>
+        </select></div>
+      </div>
+      <div class="buttons">
+        <button id="applyRef">参照名/色/記号を反映</button>
+        <button id="removeRef">参照を外す</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>4. ピーク操作</legend>
+      <p class="small">下の「ピーク対応」表で行を選び、見えていない参照ピークを非表示にできます。</p>
+      <div class="buttons">
+        <button id="hidePeak">選択ピークを隠す</button>
+        <button id="showPeaks">選択参照のピークを全表示</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>5. 出力</legend>
+      <div class="buttons">
+        <button id="renderBtn">再描画</button>
+        <button id="saveSvg">SVG出力</button>
+        <button id="savePng">PNG出力</button>
+        <button id="saveCsv">CSV出力</button>
+      </div>
+      <p id="status" class="small"></p>
+    </fieldset>
+  </aside>
+
+  <section>
+    <div id="chart"></div>
+    <div class="tables">
+      <div>
+        <table id="candidateTable">
+          <thead><tr><th>score</th><th>候補相</th><th>main peak</th><th>matched</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div>
+        <table id="matchTable">
+          <thead><tr><th>2θ obs</th><th>phase</th><th>2θ ref</th><th>delta</th><th>hkl</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+'use strict';
+const state={measured:[],refs:[],matches:[],selectedRef:-1,selectedMatch:-1,lastSvg:''};
+const colors=['#1455d9','#d50000','#0a9d31','#5a00cc','#d49a00','#444444'];
+const markers=['circle','triangle_down','diamond','triangle_up','square','cross'];
+const $=id=>document.getElementById(id);
+const n=(id,fb=0)=>{const v=Number($(id).value);return Number.isFinite(v)?v:fb};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function cleanName(name){return String(name||'sample').replace(/\.[^.]+$/,'').replace(/_exported$/i,'')}
+function splitNums(line){return [...line.matchAll(/[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?/g)].map(m=>Number(m[0]))}
+function normHeader(line){return line.toLowerCase().replaceAll('2θ','2theta').replaceAll('2ﾎｸ','2theta').split(/[\s,]+/).filter(Boolean)}
+
+function parseMeasured(text,name){
+  const points=[];
+  for(const raw of text.split(/\r?\n/)){
+    const line=raw.trim(); if(!line||line.startsWith('#')||line.startsWith("'")) continue;
+    const v=splitNums(line); if(v.length>=2&&v[0]>-20&&v[0]<200) points.push({x:v[0],y:v[1]});
+  }
+  points.sort((a,b)=>a.x-b.x);
+  return {name:cleanName(name),rawName:name,points,norm:[]};
+}
+
+function parseReference(text,name,color,marker){
+  let header=null; const peaks=[];
+  for(const raw of text.split(/\r?\n/)){
+    const line=raw.trim(); if(!line||line.startsWith('#')) continue;
+    if(/[a-zA-Zθﾎ]/.test(line)&&!/^[-+\d.]/.test(line)){header=normHeader(line);continue}
+    const v=splitNums(line); if(v.length<2) continue;
+    let p=parseRefValues(v,header); if(p) peaks.push(p);
+  }
+  const maxI=Math.max(1,...peaks.map(p=>p.intensity));
+  peaks.forEach(p=>{p.iNorm=p.intensity/maxI*100;p.phase=cleanName(name);p.hidden=false});
+  return {name:cleanName(name),rawName:name,label:suggestLabel(name),color,marker,peaks};
+}
+
+function parseRefValues(v,h){
+  if(h&&v.length>=h.length){
+    const idx=Object.fromEntries(h.map((x,i)=>[x,i]));
+    const ai=idx['2theta'], ii=idx['i']??idx['intensity'], hi=idx['h'], ki=idx['k'], li=idx['l'], di=idx['d'];
+    if(ai!=null&&ii!=null) return {angle:v[ai],intensity:v[ii],h:hi!=null?v[hi]:null,k:ki!=null?v[ki]:null,l:li!=null?v[li]:null,d:di!=null?v[di]:null};
+  }
+  if(v.length>=7) return {d:v[0],angle:v[1],intensity:v[2],h:v[v.length-3],k:v[v.length-2],l:v[v.length-1]};
+  if(v.length>=6) return {d:v[5],angle:v[4],intensity:v[3],h:v[2],k:v[1],l:v[0]}; // l k h I 2theta d
+  if(v.length>=5) return {angle:v[0],intensity:v[1],h:v[2],k:v[3],l:v[4]};
+  return {angle:v[0],intensity:v[1],h:null,k:null,l:null,d:null};
+}
+
+function suggestLabel(name){
+  const s=name.toLowerCase();
+  if(s.includes('m-type')||s.includes('bafe12o19')) return 'M-type';
+  if(s.includes('z-type')) return 'Z-type';
+  if(s.includes('y-type')) return 'Y-type';
+  if(s.includes('spinel')||s.includes('fe2o4')) return 'spinel';
+  return cleanName(name);
+}
+
+function normalizeTrace(t){
+  const xMin=n('xMin',20),xMax=n('xMax',70);
+  const pts=t.points.filter(p=>p.x>=xMin&&p.x<=xMax);
+  const ys=(pts.length?pts:t.points).map(p=>p.y);
+  const min=Math.min(...ys), max=Math.max(...ys), span=Math.max(1e-12,max-min);
+  t.norm=t.points.map(p=>({x:p.x,y:$('normalize').checked?(p.y-min)/span*100:p.y}));
+}
+
+function movingAverage(arr,w=5){
+  const o=[],h=Math.floor(w/2);
+  for(let i=0;i<arr.length;i++){let s=0,c=0;for(let j=Math.max(0,i-h);j<=Math.min(arr.length-1,i+h);j++){s+=arr[j].y;c++}o.push({x:arr[i].x,y:s/c})}
+  return o;
+}
+function detectPeaks(points,minI){
+  const xMin=n('xMin',20),xMax=n('xMax',70),arr=movingAverage(points.filter(p=>p.x>=xMin&&p.x<=xMax),5),cand=[];
+  for(let i=2;i<arr.length-2;i++){const y=arr[i].y;if(y<minI)continue;if(y>arr[i-1].y&&y>=arr[i+1].y&&y>arr[i-2].y&&y>=arr[i+2].y)cand.push(arr[i])}
+  cand.sort((a,b)=>b.y-a.y); const out=[];
+  for(const c of cand) if(!out.some(p=>Math.abs(p.x-c.x)<0.14)) out.push(c);
+  return out.sort((a,b)=>a.x-b.x);
+}
+function nearestY(trace,x){
+  let best=null,d=Infinity; for(const p of trace.norm){const q=Math.abs(p.x-x); if(q<d){d=q;best=p}}
+  return best&&d<=Math.max(n('tol',.2),.12)?best.y:null;
+}
+function visibleRefs(){return state.refs.flatMap(r=>r.peaks.filter(p=>!p.hidden&&p.iNorm>=n('minRef',8)).map(p=>({...p,ref:r})))}
+function hkl(p){return p.h==null||p.k==null||p.l==null?'':`${p.h}${p.k}${p.l}`.replace(/\.0/g,'')}
+function nearestRef(x,refs,tol){let best=null,d=Infinity;for(const p of refs){const q=Math.abs(p.angle-x);if(q<d){d=q;best=p}}return best&&d<=tol?{peak:best,delta:x-best.angle}:null}
+
+function rankPhases(peaks){
+  const tol=n('tol',.2), minRef=n('minRef',8), rows=[];
+  for(const r of state.refs){
+    const exp=r.peaks.filter(p=>!p.hidden&&p.iNorm>=minRef);
+    if(!exp.length) continue;
+    const main=r.peaks.reduce((a,b)=>a.iNorm>b.iNorm?a:b);
+    let matched=0, w=0, wt=0;
+    for(const p of exp){wt+=p.iNorm; const ok=peaks.some(pk=>Math.abs(pk.x-p.angle)<=tol); if(ok){matched++;w+=p.iNorm}}
+    const mainFound=peaks.some(pk=>Math.abs(pk.x-main.angle)<=tol);
+    let score=wt?100*w/wt:0; if(!mainFound) score*=.25;
+    score-=8*exp.filter(p=>p.iNorm>=50&&!peaks.some(pk=>Math.abs(pk.x-p.angle)<=tol)).length;
+    rows.push({label:r.label,score:Math.max(0,score),main:main.angle,mainFound,matched,total:exp.length});
+  }
+  return rows.sort((a,b)=>b.score-a.score);
+}
+
+function renderRefList(){
+  const box=$('refList'); box.innerHTML='';
+  state.refs.forEach((r,i)=>{const d=document.createElement('div');d.className='item'+(i===state.selectedRef?' active':'');d.textContent=`${r.label} [${r.name}]`;d.onclick=()=>selectRef(i);box.appendChild(d)});
+}
+function selectRef(i){state.selectedRef=i;const r=state.refs[i];$('refLabel').value=r.label;$('refColor').value=r.color;$('refMarker').value=r.marker;renderRefList()}
+
+function buildSvg(){
+  state.measured.forEach(normalizeTrace);
+  const xMin=n('xMin',20),xMax=n('xMax',70),offset=n('offset',120),W=n('svgW',1200),H=n('svgH',900);
+  const m={l:115,r:50,t:100,b:95}, pw=W-m.l-m.r, ph=H-m.t-m.b, yMin=-12, yMax=Math.max(112+offset*(state.measured.length-1),120);
+  const sx=x=>m.l+(x-xMin)/(xMax-xMin)*pw, sy=y=>m.t+ph-(y-yMin)/(yMax-yMin)*ph;
+  const parts=[`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`,
+    `<rect width="100%" height="100%" fill="white"/>`,
+    `<style>text{font-family:'Times New Roman','Yu Mincho',serif}.axis{fill:none;stroke:#000;stroke-width:2}.trace{fill:none;stroke:#000;stroke-width:1.25}.tick{stroke:#000;stroke-width:1.7}</style>`,
+    `<rect class="axis" x="${m.l}" y="${m.t}" width="${pw}" height="${ph}"/>`];
+  state.refs.slice(0,8).forEach((r,i)=>{const x=m.l+45+(i%4)*220,y=38+Math.floor(i/4)*34;parts.push(markerSvg(x,y,r.marker,r.color,12));parts.push(`<text x="${x+28}" y="${y+8}" font-size="24">${esc(r.label)}</text>`)});
+  for(let x=Math.ceil(xMin/10)*10;x<=xMax+1e-9;x+=10){const X=sx(x);parts.push(`<line class="tick" x1="${X}" y1="${m.t}" x2="${X}" y2="${m.t+22}"/>`);parts.push(`<line class="tick" x1="${X}" y1="${m.t+ph}" x2="${X}" y2="${m.t+ph-22}"/>`);parts.push(`<text x="${X}" y="${m.t+ph+50}" font-size="34" text-anchor="middle">${x}</text>`)}
+  parts.push(`<text x="${m.l+pw/2}" y="${H-24}" font-size="34" text-anchor="middle">2θ (deg.)　Cu-Kα</text>`);
+  parts.push(`<text transform="translate(45 ${m.t+ph/2}) rotate(-90)" font-size="28" text-anchor="middle">Intensity (arb. units)</text>`);
+  state.measured.forEach((tr,si)=>{const base=offset*si, pts=tr.norm.filter(p=>p.x>=xMin&&p.x<=xMax); if(pts.length){parts.push(`<polyline class="trace" points="${pts.map(p=>`${sx(p.x).toFixed(2)},${sy(p.y+base).toFixed(2)}`).join(' ')}"/>`)} parts.push(`<text x="${m.l+pw-8}" y="${sy(base+94)}" font-size="16" text-anchor="end">${esc(tr.name)}</text>`)});
+  const refs=visibleRefs();
+  for(const p of refs){state.measured.forEach((tr,si)=>{const yy=nearestY(tr,p.angle); if(yy==null)return; parts.push(markerSvg(sx(p.angle),sy(yy+offset*si)-18,p.ref.marker,p.ref.color,10))})}
+  parts.push('</svg>'); return parts.join('\n');
+}
+
+function markerSvg(x,y,type,color,s){
+  if(type==='triangle_down')return`<polygon points="${x},${y+s} ${x-s},${y-s} ${x+s},${y-s}" fill="${color}" stroke="${color}"/>`;
+  if(type==='triangle_up')return`<polygon points="${x},${y-s} ${x-s},${y+s} ${x+s},${y+s}" fill="${color}" stroke="${color}"/>`;
+  if(type==='diamond')return`<polygon points="${x},${y-s} ${x-s},${y} ${x},${y+s} ${x+s},${y}" fill="${color}" stroke="${color}"/>`;
+  if(type==='square')return`<rect x="${x-s}" y="${y-s}" width="${2*s}" height="${2*s}" fill="${color}" stroke="${color}"/>`;
+  if(type==='cross')return`<g stroke="${color}" stroke-width="3"><line x1="${x-s}" y1="${y-s}" x2="${x+s}" y2="${y+s}"/><line x1="${x-s}" y1="${y+s}" x2="${x+s}" y2="${y-s}"/></g>`;
+  return`<circle cx="${x}" cy="${y}" r="${s}" fill="${color}" stroke="${color}"/>`;
+}
+
+function analyze(){
+  const tbody=$('matchTable').querySelector('tbody'); tbody.innerHTML=''; state.matches=[]; state.selectedMatch=-1;
+  if(!state.measured.length)return;
+  const refs=visibleRefs(), tol=n('tol',.2), peaks=detectPeaks(state.measured[0].norm,n('minPeak',8));
+  for(const pk of peaks){const m=nearestRef(pk.x,refs,tol); if(m){state.matches.push({obs:pk.x,phase:m.peak.ref.label,ref:m.peak.angle,delta:pk.x-m.peak.angle,hkl:hkl(m.peak),peak:m.peak})}}
+  state.matches.forEach((r,i)=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${r.obs.toFixed(3)}</td><td>${esc(r.phase)}</td><td>${r.ref.toFixed(3)}</td><td>${r.delta.toFixed(3)}</td><td>${esc(r.hkl)}</td>`;tr.onclick=()=>{state.selectedMatch=i;[...tbody.children].forEach(x=>x.classList.remove('selected'));tr.classList.add('selected')};tbody.appendChild(tr)});
+  const cb=$('candidateTable').querySelector('tbody'); cb.innerHTML='';
+  rankPhases(peaks).forEach(r=>{cb.insertAdjacentHTML('beforeend',`<tr><td>${r.score.toFixed(1)}</td><td>${esc(r.label)}</td><td>${r.main.toFixed(3)}${r.mainFound?'':' missing'}</td><td>${r.matched}/${r.total}</td></tr>`)});
+}
+
+function render(){renderRefList(); state.lastSvg=buildSvg(); $('chart').innerHTML=state.lastSvg; analyze(); $('status').textContent=`測定 ${state.measured.length}件 / 参照 ${state.refs.length}件`;}
+async function loadFiles(){state.measured=[];state.refs=[];let ci=0;for(const f of $('measFiles').files){const t=parseMeasured(await f.text(),f.name);if(t.points.length)state.measured.push(t)}for(const f of $('refFiles').files){const r=parseReference(await f.text(),f.name,colors[ci%colors.length],markers[ci%markers.length]);if(r.peaks.length){state.refs.push(r);ci++}}state.selectedRef=state.refs.length?0:-1;if(state.selectedRef>=0)selectRef(0);render()}
+function demo(){state.measured=[parseMeasured(Array.from({length:1200},(_,i)=>{const x=20+i*50/1199;let y=5+Math.random()*3;[30.3,35.6,55.4,62.7].forEach((mu,j)=>y+=Math.exp(-.5*((x-mu)/.08)**2)*[100,35,22,28][j]);return`${x} ${y}`}).join('\n'),'demo.xy')];state.refs=[parseReference('d 2θ I fix h k l\n2.95 30.3 100 0 1 1 0\n2.52 35.6 60 0 1 1 3\n1.65 55.4 45 0 0 1 4','M-type.txt','#1455d9','circle')];state.selectedRef=0;selectRef(0);render()}
+function download(name,text,type){const b=new Blob([text],{type}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
+function savePng(){const blob=new Blob([state.lastSvg],{type:'image/svg+xml'}),url=URL.createObjectURL(blob),img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=img.width*2;c.height=img.height*2;const ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,c.width,c.height);ctx.scale(2,2);ctx.drawImage(img,0,0);c.toBlob(b=>{const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='xrd_graph.png';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)},'image/png');URL.revokeObjectURL(url)};img.src=url}
+
+$('loadBtn').onclick=loadFiles; $('demoBtn').onclick=demo; $('clearBtn').onclick=()=>{state.measured=[];state.refs=[];render()};
+$('renderBtn').onclick=render; $('saveSvg').onclick=()=>download('xrd_graph.svg',state.lastSvg,'image/svg+xml'); $('savePng').onclick=savePng;
+$('saveCsv').onclick=()=>download('xrd_matches.csv',['obs,phase,ref,delta,hkl',...state.matches.map(r=>`${r.obs},${r.phase},${r.ref},${r.delta},${r.hkl}`)].join('\n'),'text/csv');
+$('applyRef').onclick=()=>{const r=state.refs[state.selectedRef];if(!r)return;r.label=$('refLabel').value||r.label;r.color=$('refColor').value||r.color;r.marker=$('refMarker').value||r.marker;render()};
+$('removeRef').onclick=()=>{if(state.selectedRef>=0){state.refs.splice(state.selectedRef,1);state.selectedRef=Math.min(state.selectedRef,state.refs.length-1);render()}};
+$('hidePeak').onclick=()=>{const m=state.matches[state.selectedMatch];if(m){m.peak.hidden=true;render()}};
+$('showPeaks').onclick=()=>{const r=state.refs[state.selectedRef];if(r){r.peaks.forEach(p=>p.hidden=false);render()}};
+['xMin','xMax','offset','tol','minPeak','minRef','svgW','svgH','normalize'].forEach(id=>{$(id).oninput=render;$(id).onchange=render});
+render();
+</script>
+</body>
+</html>
