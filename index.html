@@ -84,6 +84,7 @@
     .probeLine{stroke:#111;stroke-width:1.5;stroke-dasharray:5 4;pointer-events:none}
     .probeHandle{cursor:ew-resize;pointer-events:all}
     .probeHit{stroke:transparent;stroke-width:18;fill:none;cursor:ew-resize;pointer-events:stroke}
+    .movableLegend{cursor:move}
 
     .modeBox{border:1px solid var(--line);border-radius:14px;background:#fbfbf7;padding:12px;margin:0 0 12px;display:grid;grid-template-columns:1fr;gap:10px;align-items:end}
     .modeBox label{margin:0 0 4px}
@@ -387,6 +388,10 @@
         <div class="row"><input id="markerEach" type="checkbox" checked><label for="markerEach" style="margin:0;font-weight:500">各測定データにマーカーを表示</label></div>
         <div class="row"><input id="showSticks" type="checkbox"><label for="showSticks" style="margin:0;font-weight:500">下部に参照スティックを表示（通常はOFF）</label></div>
         <div class="row"><input id="hklLabel" type="checkbox"><label for="hklLabel" style="margin:0;font-weight:500">強い参照ピークに hkl を表示</label></div>
+        <div class="sectionLabel">ピーク位置合わせ・格子定数</div>
+        <div class="buttonbar"><button id="clearXrdAlignments" class="secondary" type="button">位置合わせをクリア</button></div>
+        <p class="small">グラフ上の参照ピークマーカーを左ドラッグすると補正後2θを保存します。六方晶の式で a, c を推定します。</p>
+        <div class="editbox"><table id="latticeTable"><thead><tr><th>相</th><th>元2θ</th><th>補正2θ</th><th>hkl</th><th>d(calc)</th><th>a</th><th>c</th></tr></thead><tbody></tbody></table></div>
       </fieldset>
 
       <fieldset data-tab="probe">
@@ -454,7 +459,7 @@
 
 <script>
 'use strict';
-const state = { measured: [], refs: [], analyses: [], mhTraces: [], mtTraces: [], lastSvgText: '', zoomView: null, zoomHistory: [], mhZoomView: null, mhZoomHistory: [], mtZoomView: null, mtZoomHistory: [], probe: null, undoStack: [], redoStack: [], applyingHistory: false, editStartSnapshot: null };
+const state = { measured: [], refs: [], analyses: [], mhTraces: [], mtTraces: [], lastSvgText: '', zoomView: null, zoomHistory: [], mhZoomView: null, mhZoomHistory: [], mtZoomView: null, mtZoomHistory: [], xrdPeakAlignments: {}, mhLegend: null, mtLegend: null, probe: null, undoStack: [], redoStack: [], applyingHistory: false, editStartSnapshot: null };
 const ns = 'http://www.w3.org/2000/svg';
 const palette = ['#e11d48','#2563eb','#059669','#8b5cf6','#d97706','#0f766e','#dc2626','#7c3aed'];
 const markerOptions = ['triangle_down','triangle_up','triangle_left','triangle_right','circle','diamond','square','cross','plus','star','star6','wedge_down','wedge_up','wedge_left','wedge_right'];
@@ -502,6 +507,7 @@ function phaseLabel(r){ return (r.displayName || simplifyPhaseLabel(r.name || r.
 function sampleDataName(tr){ return (tr.displayName || tr.comment || tr.name || tr.rawName || '').trim(); }
 function sampleLabel(tr){ return sampleDataName(tr); }
 function ensureRuntimeState(){
+  if(!state.xrdPeakAlignments || typeof state.xrdPeakAlignments !== 'object') state.xrdPeakAlignments = {};
   state.refs.forEach(r => { refId(r); if(!r.displayName) r.displayName = simplifyPhaseLabel(r.displayName || r.name || r.rawName); if(!r.marker) r.marker = suggestMarker(r.displayName || r.name); });
   state.measured.forEach((m, i) => {
     if(!m.id) m.id = uniqueId('meas');
@@ -1209,6 +1215,45 @@ function markerSvg(x, y, marker, color, size, extra=''){
   if(marker === 'wedge_right') return `<polygon ${extra} points="${polygonPoints([[x+s,y],[x-s,y-s*0.42],[x-s,y+s*0.42]])}" fill="${color}" stroke="${color}"/>`;
   return `<polygon ${extra} points="${x.toFixed(2)},${(y+s*0.62).toFixed(2)} ${(x-s*0.72).toFixed(2)},${(y-s*0.55).toFixed(2)} ${(x+s*0.72).toFixed(2)},${(y-s*0.55).toFixed(2)}" fill="${color}" stroke="${color}"/>`;
 }
+function xrdPeakKey(r){
+  return `${r.phaseLabel || r.phase || ''}|${Number(r.angle).toFixed(5)}|${r.h ?? ''}|${r.k ?? ''}|${r.l ?? ''}|${Number.isFinite(Number(r.d)) ? Number(r.d).toFixed(5) : ''}`;
+}
+function alignedPeakAngle(r){
+  const a = state.xrdPeakAlignments?.[xrdPeakKey(r)];
+  return a && Number.isFinite(Number(a.correctedAngle)) ? Number(a.correctedAngle) : Number(r.angle);
+}
+function braggD(twoThetaDeg){
+  const lambda = 1.5406;
+  const theta = Number(twoThetaDeg) * Math.PI / 360;
+  const s = Math.sin(theta);
+  return s > 1e-9 ? lambda / (2 * s) : NaN;
+}
+function latticeFromHexPeak(h,k,l,d){
+  h = Number(h); k = Number(k); l = Number(l); d = Number(d);
+  if(![h,k,l,d].every(Number.isFinite) || d <= 0) return {a:NaN,c:NaN};
+  const hk = h*h + h*k + k*k;
+  const invD2 = 1 / (d*d);
+  const a = hk > 0 ? Math.sqrt((4/3) * hk / invD2) : NaN;
+  const c = l !== 0 ? Math.sqrt((l*l) / invD2) : NaN;
+  return {a,c};
+}
+function xrdAlignmentRows(){
+  const rows = [];
+  for(const [key,a] of Object.entries(state.xrdPeakAlignments || {})){
+    const correctedAngle = Number(a.correctedAngle);
+    const dCalc = Number.isFinite(correctedAngle) ? braggD(correctedAngle) : NaN;
+    const lat = latticeFromHexPeak(a.h, a.k, a.l, dCalc);
+    rows.push({...a, key, correctedAngle, dCalc, aLat:lat.a, cLat:lat.c});
+  }
+  return rows.sort((a,b)=>(a.phase || '').localeCompare(b.phase || '') || a.originalAngle-b.originalAngle);
+}
+function renderLatticeTable(){
+  const table = $('latticeTable');
+  if(!table) return;
+  const body = table.querySelector('tbody');
+  const rows = xrdAlignmentRows();
+  body.innerHTML = rows.length ? rows.map(r => `<tr><td>${esc(r.phase || '')}</td><td>${Number(r.originalAngle).toFixed(3)}</td><td>${Number(r.correctedAngle).toFixed(3)}</td><td>${esc(hklText(r))}</td><td>${Number.isFinite(r.dCalc) ? r.dCalc.toFixed(4) : ''}</td><td>${Number.isFinite(r.aLat) ? r.aLat.toFixed(4) : ''}</td><td>${Number.isFinite(r.cLat) ? r.cLat.toFixed(4) : ''}</td></tr>`).join('') : '<tr><td colspan="7">参照ピークをドラッグすると対応表が作成されます。</td></tr>';
+}
 function makeSvg(){
   const measured = visibleMeasured();
   measured.forEach(normalizeTrace);
@@ -1326,17 +1371,20 @@ function makeSvg(){
     const traceRefs = selectedRefPeaksForTrace(tr);
     if(showMarkers && traceRefs.length){
       traceRefs.forEach((r, ri) => {
-        if(r.angle < xMin || r.angle > xMax) return;
-        const matchedObservedPeak = hideUnmatchedMarkers ? observedMarkerSupport(tr.norm, r.angle, markerPeakWindow, markerPeakMin, markerPeakProminence, markerShoulderDetect) : null;
+        const displayAngle = alignedPeakAngle(r);
+        if(displayAngle < xMin || displayAngle > xMax) return;
+        const matchedObservedPeak = hideUnmatchedMarkers ? observedMarkerSupport(tr.norm, displayAngle, markerPeakWindow, markerPeakMin, markerPeakProminence, markerShoulderDetect) : null;
         if(hideUnmatchedMarkers && !matchedObservedPeak) return;
-        const X = sx(r.angle) + markerJitter * ((ri % 3) - 1);
-        const yData = interpY(tr.norm, matchedObservedPeak ? matchedObservedPeak.x : r.angle);
+        const X = sx(displayAngle) + markerJitter * ((ri % 3) - 1);
+        const yData = interpY(tr.norm, matchedObservedPeak ? matchedObservedPeak.x : displayAngle);
         let yM = markerMode === 'fixed' ? base + 106 : Math.min(base + 108, base + yData + markerLift);
         if(!Number.isFinite(yM)) yM = base + 100;
         const Y = sy(yM);
         const stackScale = autoMarkerScale ? Math.min(1, Math.max(0.45, 3.4 / Math.max(3, n))) : 1;
         const s = markerSize * baseMarkerScale * stackScale * (0.78 + 0.22 * Math.sqrt((r.iNorm || 100) / 100));
-        parts.push(markerSvg(X, Y, r.marker || 'triangle_down', r.color, s, 'class="marker" clip-path="url(#plotClip)"'));
+        const key = xrdPeakKey(r);
+        const extra = `class="marker xrdRefMarker" clip-path="url(#plotClip)" data-ref-key="${esc(key)}" data-original-angle="${Number(r.angle).toFixed(6)}" data-phase="${esc(r.phaseLabel || r.phase || '')}" data-h="${esc(r.h ?? '')}" data-k="${esc(r.k ?? '')}" data-l="${esc(r.l ?? '')}" data-d="${esc(r.d ?? '')}"`;
+        parts.push(markerSvg(X, Y, r.marker || 'triangle_down', r.color, s, extra));
         if(hklLabel && r.iNorm >= hklMinI && fileIndex === n - 1){
           parts.push(`<text clip-path="url(#plotClip)" x="${X}" y="${(Y - s - 4).toFixed(2)}" font-size="${fontSize * 0.30}" text-anchor="middle">${esc(hklText(r))}</text>`);
         }
@@ -1478,6 +1526,7 @@ function renderOutputOnly(){
   attachZoomHandlers();
   analyze();
   renderProbeTable();
+  renderLatticeTable();
   const nPts = state.measured.reduce((s,t)=>s+t.points.length,0);
   const nRef = state.refs.reduce((s,r)=>s+r.peaks.length,0);
   $('status').innerHTML = `<span class="pill">測定 ${measured.length}件 / ${nPts.toLocaleString()}点</span><span class="pill">凡例/表示参照 ${selectedRefSets().length}相 / ${nRef}ピーク</span><br>現在の描画範囲: <span class="mono">${$('xMin').value}–${$('xMax').value} deg</span> / 測定値・参照値とも相ごとに max = 100 へ規格化 / 候補%はメインピークと配向補正込みの目安${state.zoomView ? ' / ズーム中' : ''}`;
@@ -1737,17 +1786,26 @@ function makeMHSvg(){
   const showLegend = $('showLegend')?.checked ?? true;
   const showZero = $('mhShowZero')?.checked ?? true;
   const mirrorTicks = $('mhMirrorTicks')?.checked ?? true;
-  const xMinBase = num($('mhXMin')?.value,-15), xMaxBase = num($('mhXMax')?.value,15);
+  let xMinBase = optionalNum('mhXMin', NaN), xMaxBase = optionalNum('mhXMax', NaN);
+  if((!Number.isFinite(xMinBase) || !Number.isFinite(xMaxBase)) && traces.length){
+    const xs = traces.flatMap(t => mhPlotPoints(t).map(p=>p.x)).filter(Number.isFinite);
+    if(xs.length){ xMinBase = Number.isFinite(xMinBase) ? xMinBase : Math.min(...xs); xMaxBase = Number.isFinite(xMaxBase) ? xMaxBase : Math.max(...xs); }
+  }
+  if(!Number.isFinite(xMinBase)) xMinBase = -15;
+  if(!Number.isFinite(xMaxBase)) xMaxBase = 15;
   let xMin = state.mhZoomView ? state.mhZoomView.xMin : xMinBase;
   let xMax = state.mhZoomView ? state.mhZoomView.xMax : xMaxBase;
   const allPts = traces.flatMap(t => mhPlotPoints(t).filter(p => p.x >= Math.min(xMin,xMax) && p.x <= Math.max(xMin,xMax)));
-  let yMinBase = num($('mhYMin')?.value,-80), yMaxBase = num($('mhYMax')?.value,80);
-  if(($('mhAutoY')?.value || 'manual') === 'auto' && allPts.length){
+  let yMinBase = optionalNum('mhYMin', NaN), yMaxBase = optionalNum('mhYMax', NaN);
+  const mhAutoY = ($('mhAutoY')?.value || 'manual') === 'auto' || !Number.isFinite(yMinBase) || !Number.isFinite(yMaxBase);
+  if(mhAutoY && allPts.length){
     const ys = allPts.map(p=>p.y);
     yMinBase = Math.min(...ys); yMaxBase = Math.max(...ys);
     const pad = Math.max(1, (yMaxBase-yMinBase)*0.08);
     yMinBase -= pad; yMaxBase += pad;
   }
+  if(!Number.isFinite(yMinBase)) yMinBase = -80;
+  if(!Number.isFinite(yMaxBase)) yMaxBase = 80;
   let yMin = state.mhZoomView ? state.mhZoomView.yMin : yMinBase;
   let yMax = state.mhZoomView ? state.mhZoomView.yMax : yMaxBase;
   if(xMin === xMax){ xMin -= 1; xMax += 1; }
@@ -1771,17 +1829,20 @@ function makeMHSvg(){
   parts.push(`<style>text{font-family:'Times New Roman','Yu Mincho',serif;fill:#000}.axis{stroke:#000;stroke-width:2;fill:none}.tick{stroke:#000;stroke-width:2}.mhTrace{fill:none;stroke-linecap:round;stroke-linejoin:round}.zeroLine{stroke:#000;stroke-width:1.4}</style>`);
   parts.push(`<defs><clipPath id="mhPlotClip"><rect x="${margin.l}" y="${margin.t}" width="${plotW}" height="${plotH}"/></clipPath></defs>`);
   if(showLegend && legendRows.length){
-    const y0 = Math.max(26, margin.t - legendH + 28);
+    const lx = Number.isFinite(state.mhLegend?.x) ? state.mhLegend.x : margin.l + 14;
+    const ly = Number.isFinite(state.mhLegend?.y) ? state.mhLegend.y : margin.t + 28;
+    const boxW = Math.min(plotW - 18, Math.max(180, ...legendRows.flat().map(i => 92 + estimateRichTextWidth(i.label, legendFont))));
+    const boxH = legendRows.length * legendRowH + 14;
+    parts.push(`<g class="movableLegend" data-legend-mode="mh" transform="translate(${lx.toFixed(2)} ${ly.toFixed(2)})"><rect x="-8" y="${(-legendRowH*0.75).toFixed(2)}" width="${boxW.toFixed(2)}" height="${boxH.toFixed(2)}" fill="white" stroke="#ccc" opacity="0.92"/>`);
     legendRows.forEach((row, ri)=>{
-      let xCur = margin.l + 8;
-      const y = y0 + ri*legendRowH;
+      const y = ri*legendRowH;
       row.forEach(item=>{
         const t = item.trace;
-        parts.push(`<line x1="${xCur}" y1="${y}" x2="${xCur+60}" y2="${y}" stroke="${esc(t.color)}" stroke-width="${Math.max(3,lineWidth*1.8)}"/>`);
-        parts.push(svgRichText(xCur+78, y+legendFont*0.35, item.label, {fontSize:legendFont, anchor:'start'}));
-        xCur += item.itemW;
+        parts.push(`<line x1="0" y1="${y}" x2="60" y2="${y}" stroke="${esc(t.color)}" stroke-width="${Math.max(3,lineWidth*1.8)}"/>`);
+        parts.push(svgRichText(78, y+legendFont*0.35, item.label, {fontSize:legendFont, anchor:'start'}));
       });
     });
+    parts.push(`</g>`);
   }
   parts.push(`<rect class="axis" x="${margin.l}" y="${margin.t}" width="${plotW}" height="${plotH}"/>`);
   const xTicks = ticksWithInterval(xMin,xMax,$('mhXTick')?.value,6);
@@ -1822,7 +1883,43 @@ function renderMHOutputOnly(){
   if(tb) tb.style.display = 'none';
   const svg = $('svgHost').querySelector('svg');
   if(svg) attachMHZoomHandlers(svg);
+  if(svg) attachMovableLegendHandlers(svg, 'mh');
   $('status').innerHTML = `<span class="pill">MH ${result.meta.count}件 / ${result.meta.points.toLocaleString()}点</span><span class="pill">H: ${result.meta.xMin.toFixed(2)}–${result.meta.xMax.toFixed(2)} kOe</span><span class="pill">M: ${result.meta.yMin.toFixed(2)}–${result.meta.yMax.toFixed(2)}</span>${state.mhZoomView ? '<br><span class="pill">MHズーム中</span>' : ''}`;
+}
+function attachMovableLegendHandlers(svg, mode){
+  const legend = svg.querySelector(`.movableLegend[data-legend-mode="${mode}"]`);
+  if(!legend) return;
+  let drag = null;
+  function svgPt(e){
+    const p = svg.createSVGPoint();
+    p.x = e.clientX; p.y = e.clientY;
+    return p.matrixTransform(svg.getScreenCTM().inverse());
+  }
+  legend.addEventListener('pointerdown', e => {
+    if(e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const p = svgPt(e);
+    const matrix = legend.transform.baseVal.consolidate()?.matrix;
+    const current = {x: matrix ? matrix.e : 0, y: matrix ? matrix.f : 0};
+    drag = {dx:p.x - Number(current.x || 0), dy:p.y - Number(current.y || 0)};
+    try{ legend.setPointerCapture(e.pointerId); }catch(_e){}
+  });
+  legend.addEventListener('pointermove', e => {
+    if(!drag) return;
+    const p = svgPt(e);
+    const pos = {x:p.x - drag.dx, y:p.y - drag.dy};
+    legend.setAttribute('transform', `translate(${pos.x.toFixed(2)} ${pos.y.toFixed(2)})`);
+  });
+  legend.addEventListener('pointerup', e => {
+    if(!drag) return;
+    const p = svgPt(e);
+    const pos = {x:p.x - drag.dx, y:p.y - drag.dy};
+    if(mode === 'mh') state.mhLegend = pos;
+    else state.mtLegend = pos;
+    drag = null;
+    render();
+  });
 }
 function attachMHZoomHandlers(svg){
   const xMin = Number(svg.dataset.xMin), xMax = Number(svg.dataset.xMax);
@@ -2205,7 +2302,16 @@ function handleMTEditEvent(e){
     }
     render(); return;
   }
-  if(type === 'clearTc'){ state.mtTraces[i].tcAccepted = []; render(); return; }
+  if(type === 'clearTc'){
+    const sel = document.querySelector(`select[data-mt-type="tcSelect"][data-i="${i}"]`);
+    const temp = Number(sel?.value);
+    if(Number.isFinite(temp) && Array.isArray(state.mtTraces[i].tcAccepted)){
+      state.mtTraces[i].tcAccepted = state.mtTraces[i].tcAccepted.filter(a => Math.abs(Number(a.temp)-temp) >= 1e-6);
+    } else {
+      state.mtTraces[i].tcAccepted = [];
+    }
+    render(); return;
+  }
   if(type === 'use') state.mtTraces[i].visible = t.checked;
   if(type === 'color') state.mtTraces[i].color = t.value;
   if(type === 'label') state.mtTraces[i].displayName = t.value;
@@ -2227,21 +2333,30 @@ function makeMTSvg(){
   const fontSize = optionalNum('mtFontSize', num($('fontSize')?.value,34)), lineWidth = optionalNum('mtLineWidth', num($('lineWidth')?.value,2.0));
   const showLegend = $('showLegend')?.checked ?? true;
   const showZero = $('mtShowZero')?.checked ?? false;
-  const mirrorTicks = $('mtMirrorTicks')?.checked ?? true;
+  const mirrorTicks = false;
   const showD1 = $('mtShowD1')?.checked ?? false;
   const showD2 = $('mtShowD2')?.checked ?? false;
-  const xMinBase = num($('mtXMin')?.value,0), xMaxBase = num($('mtXMax')?.value,600);
+  let xMinBase = optionalNum('mtXMin', NaN), xMaxBase = optionalNum('mtXMax', NaN);
+  if((!Number.isFinite(xMinBase) || !Number.isFinite(xMaxBase)) && traces.length){
+    const xs = traces.flatMap(t => mtPlotPoints(t).map(p=>p.x)).filter(Number.isFinite);
+    if(xs.length){ xMinBase = Number.isFinite(xMinBase) ? xMinBase : Math.min(...xs); xMaxBase = Number.isFinite(xMaxBase) ? xMaxBase : Math.max(...xs); }
+  }
+  if(!Number.isFinite(xMinBase)) xMinBase = 0;
+  if(!Number.isFinite(xMaxBase)) xMaxBase = 600;
   let xMin = state.mtZoomView ? state.mtZoomView.xMin : xMinBase;
   let xMax = state.mtZoomView ? state.mtZoomView.xMax : xMaxBase;
   const baseByTrace = new Map(traces.map(t => [t.id, mtPlotPoints(t)]));
   const allPts = [...baseByTrace.values()].flat().filter(p => p.x >= Math.min(xMin,xMax) && p.x <= Math.max(xMin,xMax));
-  let yMinBase = num($('mtYMin')?.value,0), yMaxBase = num($('mtYMax')?.value,1);
-  if(($('mtAutoY')?.value || 'auto') === 'auto' && allPts.length){
+  let yMinBase = optionalNum('mtYMin', NaN), yMaxBase = optionalNum('mtYMax', NaN);
+  const mtAutoY = ($('mtAutoY')?.value || 'auto') === 'auto' || !Number.isFinite(yMinBase) || !Number.isFinite(yMaxBase);
+  if(mtAutoY && allPts.length){
     const ys = allPts.map(p=>p.y);
     yMinBase = Math.min(...ys); yMaxBase = Math.max(...ys);
     const pad = Math.max(1e-9, (yMaxBase-yMinBase)*0.08);
     yMinBase -= pad; yMaxBase += pad;
   }
+  if(!Number.isFinite(yMinBase)) yMinBase = 0;
+  if(!Number.isFinite(yMaxBase)) yMaxBase = 1;
   let yMin = state.mtZoomView ? state.mtZoomView.yMin : yMinBase;
   let yMax = state.mtZoomView ? state.mtZoomView.yMax : yMaxBase;
   if(xMin === xMax){ xMin -= 1; xMax += 1; }
@@ -2273,12 +2388,17 @@ function makeMTSvg(){
   parts.push(`<style>text{font-family:'Times New Roman','Yu Mincho',serif;fill:#000}.axis{stroke:#000;stroke-width:2;fill:none}.tick{stroke:#000;stroke-width:2}.mtTrace{fill:none;stroke-linecap:round;stroke-linejoin:round}.zeroLine{stroke:#000;stroke-width:1.4}.tcBox{fill:white;stroke:#000;stroke-width:1.6}.tcArrow{stroke:#000;stroke-width:1.5;fill:none}</style>`);
   parts.push(`<defs><clipPath id="mtPlotClip"><rect x="${margin.l}" y="${margin.t}" width="${plotW}" height="${plotH}"/></clipPath><marker id="tcArrowHead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#000"/></marker></defs>`);
   if(showLegend && rows.length){
-    const y0 = Math.max(26, margin.t - legendH + 28);
-    rows.forEach((row, ri)=>{ let xCur = margin.l + 8; const y = y0 + ri*legendRowH; row.forEach(item=>{ parts.push(`<line x1="${xCur}" y1="${y}" x2="${xCur+60}" y2="${y}" stroke="${esc(item.color)}" stroke-width="${Math.max(3,lineWidth*1.8)}"/>`); parts.push(svgRichText(xCur+78, y+legendFont*0.35, item.label, {fontSize:legendFont, anchor:'start'})); xCur += item.itemW; }); });
+    const lx = Number.isFinite(state.mtLegend?.x) ? state.mtLegend.x : margin.l + 14;
+    const ly = Number.isFinite(state.mtLegend?.y) ? state.mtLegend.y : margin.t + 28;
+    const boxW = Math.min(plotW - 18, Math.max(180, ...rows.flat().map(i => 92 + estimateRichTextWidth(i.label, legendFont))));
+    const boxH = rows.length * legendRowH + 14;
+    parts.push(`<g class="movableLegend" data-legend-mode="mt" transform="translate(${lx.toFixed(2)} ${ly.toFixed(2)})"><rect x="-8" y="${(-legendRowH*0.75).toFixed(2)}" width="${boxW.toFixed(2)}" height="${boxH.toFixed(2)}" fill="white" stroke="#ccc" opacity="0.92"/>`);
+    rows.forEach((row, ri)=>{ const y = ri*legendRowH; row.forEach(item=>{ parts.push(`<line x1="0" y1="${y}" x2="60" y2="${y}" stroke="${esc(item.color)}" stroke-width="${Math.max(3,lineWidth*1.8)}"/>`); parts.push(svgRichText(78, y+legendFont*0.35, item.label, {fontSize:legendFont, anchor:'start'})); }); });
+    parts.push(`</g>`);
   }
   parts.push(`<rect class="axis" x="${margin.l}" y="${margin.t}" width="${plotW}" height="${plotH}"/>`);
-  ticksWithInterval(xMin,xMax,$('mtXTick')?.value,6).forEach(x=>{ const X=sx(x); parts.push(`<line class="tick" x1="${X}" y1="${plotBottom}" x2="${X}" y2="${plotBottom-tickIn}"/>`); if(mirrorTicks) parts.push(`<line class="tick" x1="${X}" y1="${margin.t}" x2="${X}" y2="${margin.t+tickIn}"/>`); parts.push(`<text x="${X}" y="${plotBottom+48}" font-size="${fontSize*0.98}" text-anchor="middle">${fmtTick(x)}</text>`); });
-  ticksWithInterval(yMin,yMax,$('mtYTick')?.value,5).forEach(y=>{ const Y=sy(y); parts.push(`<line class="tick" x1="${margin.l}" y1="${Y}" x2="${margin.l+tickIn}" y2="${Y}"/>`); if(mirrorTicks) parts.push(`<line class="tick" x1="${margin.l+plotW}" y1="${Y}" x2="${margin.l+plotW-tickIn}" y2="${Y}"/>`); if(($('showYTicks')?.checked ?? false)) parts.push(`<text x="${margin.l-18}" y="${Y+fontSize*0.30}" font-size="${fontSize*0.82}" text-anchor="end">${fmtTick(y)}</text>`); });
+  ticksWithInterval(xMin,xMax,$('mtXTick')?.value,6).forEach(x=>{ const X=sx(x); parts.push(`<line class="tick" x1="${X}" y1="${plotBottom}" x2="${X}" y2="${plotBottom+tickIn}"/>`); parts.push(`<text x="${X}" y="${plotBottom+48}" font-size="${fontSize*0.98}" text-anchor="middle">${fmtTick(x)}</text>`); });
+  ticksWithInterval(yMin,yMax,$('mtYTick')?.value,5).forEach(y=>{ const Y=sy(y); parts.push(`<line class="tick" x1="${margin.l}" y1="${Y}" x2="${margin.l-tickIn}" y2="${Y}"/>`); if(($('showYTicks')?.checked ?? false)) parts.push(`<text x="${margin.l-18}" y="${Y+fontSize*0.30}" font-size="${fontSize*0.82}" text-anchor="end">${fmtTick(y)}</text>`); });
   if(showZero){ if(xMin < 0 && xMax > 0){ const X=sx(0); parts.push(`<line class="zeroLine" x1="${X}" y1="${margin.t}" x2="${X}" y2="${plotBottom}"/>`); } if(yMin < 0 && yMax > 0){ const Y=sy(0); parts.push(`<line class="zeroLine" x1="${margin.l}" y1="${Y}" x2="${margin.l+plotW}" y2="${Y}"/>`); } }
   parts.push(svgRichText(margin.l + plotW/2, plotBottom + 90, $('mtXAxisLabel')?.value || 'Temperature (°C)', {fontSize:fontSize*1.00, anchor:'middle'}));
   parts.push(`<g transform="translate(${Math.max(58, margin.l*0.42)},${margin.t+plotH/2}) rotate(-90)">${svgRichText(0,0,$('mtYAxisLabel')?.value || 'Magnetization (arb.units)', {fontSize:fontSize*1.00, anchor:'middle'}).replace(/^<text /,'<text ')}</g>`);
@@ -2314,6 +2434,7 @@ function renderMTOutputOnly(){
   if(tb) tb.style.display = 'none';
   const svg = $('svgHost').querySelector('svg');
   if(svg) attachMTZoomHandlers(svg);
+  if(svg) attachMovableLegendHandlers(svg, 'mt');
   const accepted = state.mtTraces.map(t => {
     const vals = Array.isArray(t.tcAccepted) ? t.tcAccepted.map(a=>Number(a.temp)).filter(Number.isFinite) : [];
     return vals.length ? `${esc(mtDisplayName(t))}: ${vals.map(v=>v.toFixed(1)).join(', ')} ℃` : '';
@@ -2483,6 +2604,9 @@ function saveCsv(){
       rows.push(['peak', a.sample, m ? (m.ref.phaseLabel || m.ref.phase || '') : '', '', '', '', '', '', '', p.x.toFixed(5), p.y.toFixed(3), m ? m.ref.angle.toFixed(5) : '', m ? m.delta.toFixed(5) : '', m ? (m.ref.h ?? '') : '', m ? (m.ref.k ?? '') : '', m ? (m.ref.l ?? '') : '', Boolean(m)]);
     }
   }
+  for(const r of xrdAlignmentRows()){
+    rows.push(['lattice', '', r.phase || '', '', '', '', '', '', '', '', '', Number(r.originalAngle).toFixed(5), Number(r.correctedAngle).toFixed(5), r.h ?? '', r.k ?? '', r.l ?? '', `d=${Number.isFinite(r.dCalc)?r.dCalc.toFixed(5):''}; a=${Number.isFinite(r.aLat)?r.aLat.toFixed(5):''}; c=${Number.isFinite(r.cLat)?r.cLat.toFixed(5):''}`]);
+  }
   downloadText('xrd_peak_analysis.csv', rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n'), 'text/csv');
 }
 
@@ -2520,7 +2644,10 @@ function makeHistorySnapshot(){
     mhZoomView: state.mhZoomView ? {...state.mhZoomView} : null,
     mhZoomHistory: clonePlain(state.mhZoomHistory || []),
     mtZoomView: state.mtZoomView ? {...state.mtZoomView} : null,
-    mtZoomHistory: clonePlain(state.mtZoomHistory || [])
+    mtZoomHistory: clonePlain(state.mtZoomHistory || []),
+    xrdPeakAlignments: clonePlain(state.xrdPeakAlignments || {}),
+    mhLegend: state.mhLegend ? {...state.mhLegend} : null,
+    mtLegend: state.mtLegend ? {...state.mtLegend} : null
   };
 }
 function sameSnapshot(a,b){
@@ -2560,6 +2687,9 @@ function restoreHistorySnapshot(snapshot){
   state.mhZoomHistory = clonePlain(snapshot.mhZoomHistory || []);
   state.mtZoomView = snapshot.mtZoomView ? {...snapshot.mtZoomView} : null;
   state.mtZoomHistory = clonePlain(snapshot.mtZoomHistory || []);
+  state.xrdPeakAlignments = clonePlain(snapshot.xrdPeakAlignments || {});
+  state.mhLegend = snapshot.mhLegend ? {...snapshot.mhLegend} : null;
+  state.mtLegend = snapshot.mtLegend ? {...snapshot.mtLegend} : null;
   ensureRuntimeState();
   ensureMHState();
   ensureMTState();
@@ -2609,7 +2739,10 @@ function exportProject(){
     mhZoomView: state.mhZoomView ? {...state.mhZoomView} : null,
     mhZoomHistory: clonePlain(state.mhZoomHistory || []),
     mtZoomView: state.mtZoomView ? {...state.mtZoomView} : null,
-    mtZoomHistory: clonePlain(state.mtZoomHistory || [])
+    mtZoomHistory: clonePlain(state.mtZoomHistory || []),
+    xrdPeakAlignments: clonePlain(state.xrdPeakAlignments || {}),
+    mhLegend: state.mhLegend ? {...state.mhLegend} : null,
+    mtLegend: state.mtLegend ? {...state.mtLegend} : null
   };
   downloadText(`${name}.xrdproj.json`, JSON.stringify(project, null, 2), 'application/json');
 }
@@ -2626,6 +2759,9 @@ async function importProjectFile(file){
   state.mhZoomHistory = Array.isArray(project.mhZoomHistory) ? project.mhZoomHistory : [];
   state.mtZoomView = project.mtZoomView ? {...project.mtZoomView} : null;
   state.mtZoomHistory = Array.isArray(project.mtZoomHistory) ? project.mtZoomHistory : [];
+  state.xrdPeakAlignments = project.xrdPeakAlignments || {};
+  state.mhLegend = project.mhLegend ? {...project.mhLegend} : null;
+  state.mtLegend = project.mtLegend ? {...project.mtLegend} : null;
   state.probe = null;
   ensureRuntimeState();
   ensureMHState();
@@ -2696,6 +2832,7 @@ function attachZoomHandlers(){
   const angleFromPoint = (p) => xMin + (clamp(p.x, left, left + width) - left) / width * (xMax - xMin);
   const xFromAngle = (angle) => left + (angle - xMin) / (xMax - xMin) * width;
   let probeDragging = false;
+  let refDragging = null;
   let start = null;
   let rect = null;
   function setRect(a,b){
@@ -2708,6 +2845,13 @@ function attachZoomHandlers(){
   svg.addEventListener('pointerdown', (e)=>{
     if(e.button !== 0) return;
     const p = toSvg(e);
+    const refMarker = e.target && e.target.closest && e.target.closest('.xrdRefMarker');
+    if(refMarker){
+      e.preventDefault();
+      refDragging = {el:refMarker, startX:clamp(p.x,left,left+width), nowX:clamp(p.x,left,left+width)};
+      try{ svg.setPointerCapture(e.pointerId); }catch(_e){}
+      return;
+    }
     if(e.target && e.target.closest && e.target.closest('.probeHandle,.probeHit')){
       e.preventDefault();
       probeDragging = true;
@@ -2728,6 +2872,12 @@ function attachZoomHandlers(){
     try{ svg.setPointerCapture(e.pointerId); }catch(_e){}
   });
   svg.addEventListener('pointermove', (e)=>{
+    if(refDragging){
+      const p = toSvg(e);
+      refDragging.nowX = clamp(p.x,left,left+width);
+      refDragging.el.setAttribute('transform', `translate(${(refDragging.nowX-refDragging.startX).toFixed(2)} 0)`);
+      return;
+    }
     if(probeDragging){
       const p = toSvg(e);
       const angle = angleFromPoint(p);
@@ -2742,6 +2892,26 @@ function attachZoomHandlers(){
     setRect(start,now);
   });
   svg.addEventListener('pointerup', (e)=>{
+    if(refDragging){
+      const p = toSvg(e);
+      const x = clamp(p.x,left,left+width);
+      const correctedAngle = angleFromPoint({x,y:p.y});
+      const el = refDragging.el;
+      recordUndoPoint();
+      state.xrdPeakAlignments[el.dataset.refKey] = {
+        key: el.dataset.refKey,
+        phase: el.dataset.phase || '',
+        originalAngle: Number(el.dataset.originalAngle),
+        correctedAngle,
+        h: el.dataset.h,
+        k: el.dataset.k,
+        l: el.dataset.l,
+        d: Number(el.dataset.d)
+      };
+      refDragging = null;
+      render();
+      return;
+    }
     if(probeDragging){
       probeDragging = false;
       const p = toSvg(e);
@@ -2835,6 +3005,7 @@ if($('resetZoom')) $('resetZoom').addEventListener('click', ()=>{ recordUndoPoin
 if($('undoBtn')) $('undoBtn').addEventListener('click', undoAction);
 if($('redoBtn')) $('redoBtn').addEventListener('click', redoAction);
 if($('clearProbe')) $('clearProbe').addEventListener('click', clearProbeMarker);
+if($('clearXrdAlignments')) $('clearXrdAlignments').addEventListener('click', ()=>{ recordUndoPoint(); state.xrdPeakAlignments = {}; render(); });
 $('saveSvg').addEventListener('click', ()=> { const svgText = exportSvgText(); if(svgText) downloadText(`${currentGraphStem()}.svg`, svgText, 'image/svg+xml'); });
 $('savePng').addEventListener('click', savePng);
 $('saveCsv').addEventListener('click', saveCsv);
