@@ -3,308 +3,2598 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>XRD Graph Maker</title>
+  <title>XRD / MH / MT Graph Maker</title>
   <style>
-    :root{--bg:#f3f3f0;--panel:#fff;--ink:#111;--muted:#5b5b5b;--line:#cfcfc8}
+    :root{
+      --bg:#f6f6f3;
+      --panel:#ffffff;
+      --ink:#171717;
+      --muted:#606060;
+      --line:#d8d8d0;
+    }
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
-    header{height:56px;padding:10px 14px;background:#fff;border-bottom:1px solid var(--line)}
-    h1{margin:0;font-size:20px}
-    header p{margin:2px 0 0;color:var(--muted);font-size:12px}
-    main{display:grid;grid-template-columns:390px 1fr;gap:10px;padding:10px;height:calc(100vh - 56px)}
-    aside,section{background:var(--panel);border:1px solid var(--line)}
-    aside{padding:10px;overflow:auto}
-    section{display:grid;grid-template-rows:1fr 240px;min-width:0}
-    fieldset{border:1px solid var(--line);margin:0 0 10px;padding:10px}
-    legend{font-size:13px;font-weight:700}
-    label{display:block;margin:7px 0 3px;font-size:12px;font-weight:600}
-    input,select,button{font:inherit;font-size:12px}
-    input[type="number"],input[type="text"],select{width:100%;border:1px solid #bbb;padding:5px;background:#fff}
+    header{padding:18px 22px;border-bottom:1px solid var(--line);background:#fff}
+    header h1{margin:0;font-size:22px;letter-spacing:.02em}
+    header p{margin:6px 0 0;color:var(--muted);font-size:13px;line-height:1.5}
+    main{display:grid;grid-template-columns:minmax(360px, var(--left-col, 1fr)) minmax(360px, var(--right-col, 1fr));gap:16px;padding:16px;min-height:calc(100vh - 76px)}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 10px rgba(0,0,0,.04)}
+    .controls{padding:16px;overflow:auto;max-height:calc(100vh - 108px)}
+    .chartwrap{padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+    fieldset{border:1px solid var(--line);border-radius:12px;margin:0 0 14px;padding:12px}
+    legend{font-weight:700;font-size:13px;padding:0 6px}
+    label{display:block;margin:8px 0 4px;font-size:13px;font-weight:600}
+    input[type="number"],input[type="text"],select,textarea{width:100%;border:1px solid #cfcfc8;border-radius:8px;padding:8px;background:#fff;font:inherit;font-size:13px}
     input[type="file"]{width:100%;font-size:12px}
-    button{border:1px solid #aaa;background:#f7f7f7;padding:6px 8px;cursor:pointer}
-    button.primary{background:#111;color:#fff;border-color:#111}
-    .row{display:flex;gap:6px;align-items:center}
-    .row>*{flex:1}
-    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-    .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
-    .buttons{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-    .buttons button{flex:1}
-    .small{font-size:11px;color:var(--muted);line-height:1.45}
-    .list{height:92px;border:1px solid #bbb;overflow:auto;background:#fff;font-size:12px}
-    .item{padding:3px 5px;border-bottom:1px solid #eee;cursor:pointer}
-    .item.active{background:#1177cc;color:#fff}
-    #chart{overflow:auto;background:#fff;display:grid;place-items:center}
-    #chart svg{max-width:100%;height:auto}
-    .tables{overflow:auto;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr}
+    input[type="color"]{width:44px;height:34px;border:1px solid #d3d3ca;border-radius:8px;padding:2px;background:#fff}
+    textarea{min-height:72px;resize:vertical}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+    .row{display:flex;gap:8px;align-items:center;margin:8px 0}
+    .row input[type="checkbox"]{transform:translateY(1px)}
+    button{border:0;border-radius:10px;background:#111;color:#fff;padding:9px 12px;font-weight:700;cursor:pointer;font-size:13px}
+    button.secondary{background:#efefe8;color:#111;border:1px solid #d4d4ca}
+    button:disabled{opacity:.45;cursor:not-allowed}
+    .buttonbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    #svgHost{width:100%;min-height:430px;max-height:68vh;border:1px solid var(--line);border-radius:12px;background:#fff;display:grid;place-items:center;overflow:auto;position:relative}
+    #svgHost svg{max-width:100%;height:auto;display:block;user-select:none;touch-action:none}
+    .status{font-size:13px;color:var(--muted);line-height:1.55}
+    .small{font-size:12px;color:var(--muted);line-height:1.55}
     table{border-collapse:collapse;width:100%;font-size:12px;background:#fff}
-    th,td{border-bottom:1px solid #eee;border-right:1px solid #eee;padding:4px 6px;white-space:nowrap}
-    th{position:sticky;top:0;background:#f4f4f4;z-index:1}
-    tr.selected{background:#dcecff}
-    @media(max-width:980px){main{grid-template-columns:1fr;height:auto}section{height:860px}}
+    th,td{border-bottom:1px solid #e9e9e2;padding:6px 8px;text-align:left;vertical-align:middle}
+    th{background:#f4f4ee;position:sticky;top:0;z-index:1}
+    .tables{display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:220px}
+    .tablebox{border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:320px;background:#fff}
+    .editbox{border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:320px;background:#fff}
+    .pill{display:inline-block;border-radius:999px;background:#f1f1ea;border:1px solid #ddd;padding:2px 7px;font-size:12px;margin-right:4px;margin-bottom:5px}
+    .mono{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
+    .mini{font-size:11px;color:#666}
+    .right{text-align:right}
+    .center{text-align:center}
+    .stickyNote{padding:8px 10px;border:1px dashed #d9d3b0;background:#fffbea;border-radius:10px;font-size:12px;line-height:1.5;color:#6a5d23}
+    .traceTools{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+    .traceTools button{padding:4px 7px;border-radius:7px;font-size:11px;background:#efefe8;color:#111;border:1px solid #d4d4ca}
+    .refchips{display:flex;flex-wrap:wrap;gap:4px;min-width:260px;max-width:520px}
+    .refchip{display:inline-flex;align-items:center;gap:3px;border:1px solid #ddd;border-radius:999px;padding:2px 7px;background:#fafafa;font-size:11px;white-space:nowrap}
+    .refchip input{margin:0}
+    .commentInput{min-width:150px}
+    .nameInput{min-width:150px}
+    .zoomHint{font-size:12px;color:#555;background:#f7f7f0;border:1px solid var(--line);border-radius:10px;padding:7px 9px;line-height:1.45}
+    .tableHeader{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:#f7f7f1;border-bottom:1px solid #e1e1d8;position:sticky;top:0;z-index:2}
+    .tableHeader label{margin:0;font-size:12px;font-weight:700;white-space:nowrap}
+    .tableHeader select{max-width:260px;padding:5px 8px;font-size:12px}
+    input[type="range"]{width:100%}
+    .controlTabs{position:sticky;top:-16px;z-index:10;background:linear-gradient(#fff 0 74%, rgba(255,255,255,.92));padding:0 0 10px;margin:-4px 0 12px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid #ecece4}
+    .controlTabs button{background:#f1f1ea;color:#222;border:1px solid #d9d9d0;border-radius:999px;padding:7px 10px;font-size:12px;box-shadow:none}
+    .controlTabs button.active{background:#111;color:#fff;border-color:#111}
+    .controlTabs button:hover{filter:brightness(.98)}
+    fieldset[data-tab][hidden]{display:none}
+    .probeInfo{font-size:12px;color:#444;line-height:1.45;padding:8px 10px;background:#f8f8f1;border-bottom:1px solid #e1e1d8}
+    .probeInfo b{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+    .probeEmpty{color:#777}
+    .probeLine{stroke:#111;stroke-width:1.5;stroke-dasharray:5 4;pointer-events:none}
+    .probeHandle{cursor:ew-resize;pointer-events:all}
+    .probeHit{stroke:transparent;stroke-width:18;fill:none;cursor:ew-resize;pointer-events:stroke}
+
+    .modeBox{border:1px solid var(--line);border-radius:14px;background:#fbfbf7;padding:10px 12px;margin:0 0 12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
+    .modeBox label{margin:0 0 4px}
+    .modeBox .small{align-self:center}
+    .mhColor{width:54px}
+    .mhTable input[type="text"]{min-width:160px}
+    .mhTable input[type="number"]{min-width:86px}
+    .mhHint{padding:8px 10px;border:1px dashed #cfd7e6;background:#f8fbff;border-radius:10px;font-size:12px;line-height:1.5;color:#34415a}
+    .mtHint{padding:8px 10px;border:1px dashed #d7d5c3;background:#fffdf3;border-radius:10px;font-size:12px;line-height:1.5;color:#4d4725}
+    .mtTable input[type="text"]{min-width:150px}
+    .mtTable input[type="number"]{min-width:84px}
+    .mtTable select{min-width:130px}
+    @media(max-width:1080px){main{grid-template-columns:1fr}.controls{max-height:none}.tables{grid-template-columns:1fr}.modeBox{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
-<header>
-  <h1>XRD Graph Maker</h1>
-  <p>単体HTML版。測定XRDと参照ピークを読み込み、手動同定・候補相ランキング・縦積み比較・SVG/PNG出力を行います。</p>
-</header>
-<main>
-  <aside>
-    <fieldset>
-      <legend>1. ファイル</legend>
-      <label>測定データ .xy / .txt / .csv 複数可</label>
-      <input id="measFiles" type="file" multiple accept=".xy,.txt,.csv,.dat" />
-      <label>参照ピーク .txt / .csv 複数可</label>
-      <input id="refFiles" type="file" multiple accept=".txt,.csv,.dat" />
-      <div class="buttons">
-        <button class="primary" id="loadBtn">読み込み</button>
-        <button id="demoBtn">デモ</button>
-        <button id="clearBtn">クリア</button>
+  <header>
+    <h1>XRD / MH / MT Graph Maker</h1>
+    <p>XRD測定データ、VSM/MHデータ、VSM/MTデータを読み込み、論文風のSVG/PNGグラフをブラウザ内で作成します。XRDは参照ピーク同定、MHは複数ループ重ね描き、MTは微分曲線とT<sub>C</sub>推定に対応します。</p>
+  </header>
+  <main>
+    <section class="card controls">
+      <div class="modeBox">
+        <div>
+          <label for="graphMode">グラフ種類</label>
+          <select id="graphMode">
+            <option value="xrd" selected>XRD グラフ</option>
+            <option value="mh">MH グラフ</option>
+            <option value="mt">MT グラフ</option>
+          </select>
+        </div>
+        <div class="small">XRD、MH、MTを同じHTML内で切り替えます。保存されるプロジェクトには全モードの作業状態が入ります。</div>
       </div>
-    </fieldset>
+      <div class="controlTabs" aria-label="設定カテゴリ">
+        <button type="button" class="active" data-tab-button="files">ファイル/データ</button>
+        <button type="button" data-tab-button="mh">MHグラフ</button>
+        <button type="button" data-tab-button="mt">MTグラフ</button>
+        <button type="button" data-tab-button="graph">図の体裁</button>
+        <button type="button" data-tab-button="refs">参照マーカー</button>
+        <button type="button" data-tab-button="probe">ピーク調査</button>
+        <button type="button" data-tab-button="id">同定</button>
+        <button type="button" data-tab-button="save">保存</button>
+      </div>
+      <fieldset data-tab="files">
+        <legend>1. ファイル読み込み</legend>
+        <label>測定データ .xy / .txt / .csv（複数可、2列: 2θ intensity）</label>
+        <input id="measFiles" type="file" multiple accept=".xy,.txt,.csv,.dat" />
+        <label>参照ピーク .txt / .csv（追加読み込み可、d 2θ I fix h k l 形式など）</label>
+        <input id="refFiles" type="file" multiple accept=".txt,.csv,.dat" />
+        <label>MH / VSM データ .VSM / .txt / .csv（複数可、H(Oe), M(emu) を自動読取）</label>
+        <input id="mhFiles" type="file" multiple accept=".VSM,.vsm,.txt,.csv,.dat" />
+        <label>MT / VSM データ .VSM / .txt / .csv（複数可、Temp., M(emu) を自動読取）</label>
+        <input id="mtFiles" type="file" multiple accept=".VSM,.vsm,.txt,.csv,.dat" />
+        <div class="buttonbar">
+          <button id="loadBtn">XRD読み込み/測定追加</button>
+          <button id="loadMHBtn" type="button">MH読み込み/追加</button>
+          <button id="loadMTBtn" type="button">MT読み込み/追加</button>
+          <button id="restoreBuiltins" class="secondary">内蔵参照を復元</button>
+          <button id="demoBtn" class="secondary">内蔵デモ</button>
+          <button id="clearBtn" class="secondary">XRD測定クリア</button>
+          <button id="clearMHBtn" class="secondary" type="button">MHクリア</button>
+          <button id="clearMTBtn" class="secondary" type="button">MTクリア</button>
+        </div>
+        <p class="small">測定データは表示範囲内で <span class="mono">min→0, max→100</span> に規格化します。参照データも各相ごとに最大強度100へ自動規格化します。内蔵参照は一覧に入っていますが、初期状態では表示OFFです。</p>
+      </fieldset>
 
-    <fieldset>
-      <legend>2. 表示範囲</legend>
-      <div class="grid3">
-        <div><label>2θ min</label><input id="xMin" type="number" value="20" step="0.1"></div>
-        <div><label>2θ max</label><input id="xMax" type="number" value="70" step="0.1"></div>
-        <div><label>縦オフセット</label><input id="offset" type="number" value="120" step="5"></div>
-      </div>
-      <div class="grid3">
-        <div><label>許容差 / deg</label><input id="tol" type="number" value="0.20" step="0.01"></div>
-        <div><label>測定ピーク閾値</label><input id="minPeak" type="number" value="8" step="1"></div>
-        <div><label>参照強度閾値</label><input id="minRef" type="number" value="8" step="1"></div>
-      </div>
-      <div class="grid2">
-        <div><label>図幅 px</label><input id="svgW" type="number" value="1200" step="10"></div>
-        <div><label>図高 px</label><input id="svgH" type="number" value="900" step="10"></div>
-      </div>
-      <div class="row" style="margin-top:8px">
-        <label><input id="normalize" type="checkbox" checked> min→0, max→100規格化</label>
-      </div>
-    </fieldset>
+      <fieldset data-tab="graph">
+        <legend>画面レイアウト</legend>
+        <label>左の操作欄 / 右のグラフ欄の比率</label>
+        <input id="layoutRatio" type="range" min="30" max="70" value="50" step="1" />
+        <div id="layoutRatioLabel" class="small">左 50% / グラフ 50%</div>
+      </fieldset>
 
-    <fieldset>
-      <legend>3. 使用中の参照</legend>
-      <div id="refList" class="list"></div>
-      <label>表示名</label><input id="refLabel" type="text" placeholder="M-type / Z-type など">
-      <div class="grid2">
-        <div><label>色</label><input id="refColor" type="text" value="#1455d9"></div>
-        <div><label>記号</label><select id="refMarker">
-          <option value="circle">circle</option>
-          <option value="triangle_down">triangle_down</option>
-          <option value="triangle_up">triangle_up</option>
-          <option value="diamond">diamond</option>
-          <option value="square">square</option>
-          <option value="cross">cross</option>
-        </select></div>
-      </div>
-      <div class="buttons">
-        <button id="applyRef">参照名/色/記号を反映</button>
-        <button id="removeRef">参照を外す</button>
-      </div>
-    </fieldset>
+      <fieldset data-tab="id">
+        <legend>配向・同定スコア設定</legend>
+        <div class="stickyNote">候補相の%は、ピーク位置の一致だけでなく、メインピークの有無と相対強度のつじつまを含めた目安です。配向を選ぶと、その面族のピークだけ強く出る可能性を許容します。</div>
+        <div class="grid3">
+          <div><label>配向補正</label><select id="textureMode">
+            <option value="none">配向なし</option>
+            <option value="h00">h00 配向</option>
+            <option value="0k0">0k0 配向</option>
+            <option value="00l">00l 配向</option>
+            <option value="hk0">hk0 面内</option>
+            <option value="h0l">h0l 面内</option>
+            <option value="0kl">0kl 面内</option>
+          </select></div>
+          <div><label>配向ピーク許容倍率</label><input id="textureBoost" type="number" value="3.0" step="0.1" min="1"></div>
+          <div><label>候補表示数</label><input id="candidateLimit" type="number" value="12" step="1" min="1"></div>
+        </div>
+        <div class="grid3">
+          <div><label>測定ピーク閾値</label><input id="minPeakI" type="number" value="5" step="1" min="0" max="100"></div>
+          <div><label>自動2θ補正</label><select id="autoShift"><option value="on" selected>ON</option><option value="off">OFF</option></select></div>
+          <div><label>最大ずれ / deg</label><input id="maxShift" type="number" value="0.50" step="0.01" min="0"></div>
+        </div>
+        <div class="row"><input id="mainPeakRequired" type="checkbox" checked><label for="mainPeakRequired" style="margin:0;font-weight:500">メインピークが無い相は候補から落とす</label></div>
+      </fieldset>
 
-    <fieldset>
-      <legend>4. ピーク操作</legend>
-      <p class="small">下の「ピーク対応」表で行を選び、見えていない参照ピークを非表示にできます。</p>
-      <div class="buttons">
-        <button id="hidePeak">選択ピークを隠す</button>
-        <button id="showPeaks">選択参照のピークを全表示</button>
-      </div>
-    </fieldset>
+      <fieldset data-tab="files">
+        <legend>読み込み済みデータの表示名</legend>
+        <div class="stickyNote">測定データはリスト順に縦積みされます。順番ボタンで上下を入れ替えられます。コメント欄の文字が各グラフ右側に表示されます。参照相はグラフごとに個別指定できます。</div>
+        <label>測定データ</label>
+        <div class="editbox"><table id="measEditTable"><thead><tr><th class="center">使用</th><th>順番</th><th>元ファイル</th><th>表示名/コメント</th><th>このグラフに表示する参照相</th></tr></thead><tbody></tbody></table></div>
+        <label style="margin-top:10px">参照データ</label>
+        <div class="editbox"><table id="refEditTable"><thead><tr><th class="center">使用</th><th>色</th><th>記号</th><th>元ファイル</th><th>表示名</th></tr></thead><tbody></tbody></table></div>
+      </fieldset>
 
-    <fieldset>
-      <legend>5. 出力</legend>
-      <div class="buttons">
-        <button id="renderBtn">再描画</button>
-        <button id="saveSvg">SVG出力</button>
-        <button id="savePng">PNG出力</button>
-        <button id="saveCsv">CSV出力</button>
-      </div>
-      <p id="status" class="small"></p>
-    </fieldset>
-  </aside>
+      <fieldset data-tab="mh">
+        <legend>MHデータ・表示設定</legend>
+        <div class="mhHint">VSMファイルの <span class="mono">sample weight</span> を読んで、M(emu) を質量で割って emu/g に換算します。H(Oe) は kOe に自動変換します。複数ファイルは同じ軸上に重ね描きされます。</div>
+        <div class="grid3">
+          <div><label>H min / kOe</label><input id="mhXMin" type="number" value="-15" step="0.5"></div>
+          <div><label>H max / kOe</label><input id="mhXMax" type="number" value="15" step="0.5"></div>
+          <div><label>Y軸範囲</label><select id="mhAutoY"><option value="manual" selected>手動</option><option value="auto">自動</option></select></div>
+        </div>
+        <div class="grid3">
+          <div><label>M min</label><input id="mhYMin" type="number" value="-80" step="5"></div>
+          <div><label>M max</label><input id="mhYMax" type="number" value="80" step="5"></div>
+          <div><label>磁化換算</label><select id="mhMassMode"><option value="auto" selected>ファイル質量で emu/g</option><option value="manual">指定質量で emu/g</option><option value="raw">M(emu)のまま</option></select></div>
+        </div>
+        <div class="grid3">
+          <div><label>指定質量 / g</label><input id="mhManualMass" type="number" value="0.02" step="0.0001" min="0"></div>
+          <div><label>平滑化</label><select id="mhSmooth"><option value="0" selected>なし</option><option value="3">3点</option><option value="5">5点</option><option value="9">9点</option></select></div>
+          <div><label>点の間引き</label><input id="mhPointStep" type="number" value="1" min="1" step="1"></div>
+        </div>
+        <div class="grid2">
+          <div><label>X軸ラベル</label><input id="mhXAxisLabel" type="text" value="Magnetic field (kOe)"></div>
+          <div><label>Y軸ラベル</label><input id="mhYAxisLabel" type="text" value="Magnetization (emu/g)"></div>
+        </div>
+        <div class="grid2">
+          <div class="row"><input id="mhShowZero" type="checkbox" checked><label for="mhShowZero" style="margin:0;font-weight:500">0ラインを表示</label></div>
+          <div class="row"><input id="mhMirrorTicks" type="checkbox" checked><label for="mhMirrorTicks" style="margin:0;font-weight:500">上・右にも内向き目盛り</label></div>
+        </div>
+        <label>読み込み済みMHデータ</label>
+        <div class="editbox"><table id="mhEditTable" class="mhTable"><thead><tr><th class="center">使用</th><th>順番</th><th>色</th><th>元ファイル</th><th>凡例名</th><th>質量(g)</th><th>点数</th></tr></thead><tbody></tbody></table></div>
+        <p class="small">凡例名には <span class="mono">T_s</span>、<span class="mono">Fe^{3+}</span>、<span class="mono">\theta</span> なども使えます。左ドラッグでズーム、右クリックで1つ前のズームに戻ります。</p>
+      </fieldset>
 
-  <section>
-    <div id="chart"></div>
-    <div class="tables">
-      <div>
-        <table id="candidateTable">
-          <thead><tr><th>score</th><th>候補相</th><th>main peak</th><th>matched</th></tr></thead>
-          <tbody></tbody>
-        </table>
+      <fieldset data-tab="mt">
+        <legend>MTデータ・表示設定</legend>
+        <div class="mtHint">MTのVSMファイルから <span class="mono">Temp.(℃)</span> と <span class="mono">M(emu)</span> を読み込みます。一次微分・二次微分は表示ON/OFF可能で、T<sub>C</sub>は二次微分の極大値から候補を自動提案します。</div>
+        <div class="grid3">
+          <div><label>T min / ℃</label><input id="mtXMin" type="number" value="0" step="10"></div>
+          <div><label>T max / ℃</label><input id="mtXMax" type="number" value="600" step="10"></div>
+          <div><label>Y軸範囲</label><select id="mtAutoY"><option value="auto" selected>自動</option><option value="manual">手動</option></select></div>
+        </div>
+        <div class="grid3">
+          <div><label>M min</label><input id="mtYMin" type="number" value="0" step="0.01"></div>
+          <div><label>M max</label><input id="mtYMax" type="number" value="1" step="0.01"></div>
+          <div><label>磁化換算</label><select id="mtMassMode"><option value="raw" selected>M(emu)のまま</option><option value="auto">ファイル質量で emu/g</option><option value="manual">指定質量で emu/g</option><option value="norm">0–100に規格化</option></select></div>
+        </div>
+        <div class="grid3">
+          <div><label>指定質量 / g</label><input id="mtManualMass" type="number" value="0.02" step="0.0001" min="0"></div>
+          <div><label>平滑化</label><select id="mtSmooth"><option value="0">なし</option><option value="3">3点</option><option value="5" selected>5点</option><option value="9">9点</option><option value="15">15点</option></select></div>
+          <div><label>点の間引き</label><input id="mtPointStep" type="number" value="1" min="1" step="1"></div>
+        </div>
+        <div class="grid3">
+          <div class="row"><input id="mtShowD1" type="checkbox"><label for="mtShowD1" style="margin:0;font-weight:500">dM/dTを表示</label></div>
+          <div class="row"><input id="mtShowD2" type="checkbox"><label for="mtShowD2" style="margin:0;font-weight:500">d²M/dT²を表示</label></div>
+          <div><label>微分曲線スケール / %</label><input id="mtDerivativeScale" type="number" value="18" step="1" min="1" max="80"></div>
+        </div>
+        <div class="grid3">
+          <div><label>T<sub>C</sub>探索 Tmin / ℃</label><input id="mtTcMin" type="number" value="50" step="10"></div>
+          <div><label>T<sub>C</sub>探索 Tmax / ℃</label><input id="mtTcMax" type="number" value="550" step="10"></div>
+          <div><label>T<sub>C</sub>候補数</label><input id="mtTcCandidateCount" type="number" value="3" step="1" min="1" max="10"></div>
+        </div>
+        <div class="grid2">
+          <div><label>X軸ラベル</label><input id="mtXAxisLabel" type="text" value="Temperature (°C)"></div>
+          <div><label>Y軸ラベル</label><input id="mtYAxisLabel" type="text" value="Magnetization (arb.units)"></div>
+        </div>
+        <div class="grid2">
+          <div class="row"><input id="mtShowZero" type="checkbox"><label for="mtShowZero" style="margin:0;font-weight:500">0ラインを表示</label></div>
+          <div class="row"><input id="mtMirrorTicks" type="checkbox" checked><label for="mtMirrorTicks" style="margin:0;font-weight:500">上・右にも内向き目盛り</label></div>
+        </div>
+        <label>読み込み済みMTデータ</label>
+        <div class="editbox"><table id="mtEditTable" class="mtTable"><thead><tr><th class="center">使用</th><th>順番</th><th>色</th><th>元ファイル</th><th>凡例名</th><th>質量(g)</th><th>T<sub>C</sub>候補</th><th>採用</th><th>点数</th></tr></thead><tbody></tbody></table></div>
+        <p class="small">候補のT<sub>C</sub>を採用すると、グラフ内に矢印と枠付きラベル <span class="mono">T_C = 377°C</span> のように表示します。左ドラッグでズーム、右クリックで1つ前のズームに戻ります。</p>
+      </fieldset>
+
+      <fieldset data-tab="graph">
+        <legend>表示範囲・積み上げ</legend>
+        <div class="grid2">
+          <div><label>2θ min</label><input id="xMin" type="number" value="20" step="0.1"></div>
+          <div><label>2θ max</label><input id="xMax" type="number" value="70" step="0.1"></div>
+        </div>
+        <div class="grid3">
+          <div><label>縦オフセット</label><input id="offset" type="number" value="120" step="5"></div>
+          <div><label>下側グラフ余白</label><input id="yPad" type="number" value="45" step="1"></div>
+          <div><label>上側グラフ余白</label><input id="topPad" type="number" value="55" step="1"></div>
+        </div>
+        <div class="grid2">
+          <div><label>描画順</label><select id="order"><option value="top" selected>リスト順: 上→下</option><option value="bottom">リスト順: 下→上</option></select></div>
+          <div><label>ラベル位置</label><select id="labelPos"><option value="right">右側</option><option value="left">左側</option><option value="none">なし</option></select></div>
+        </div>
+        <div class="row"><input id="normalize" type="checkbox" checked><label for="normalize" style="margin:0;font-weight:500">測定データを規格化する</label></div>
+        <div class="row"><input id="baseline" type="checkbox" checked><label for="baseline" style="margin:0;font-weight:500">表示範囲内の最小値を基準にする</label></div>
+      </fieldset>
+
+      <fieldset data-tab="refs">
+        <legend>参照ピーク・表示設定</legend>
+        <div class="grid2">
+          <div><label>表示する参照相</label><select id="refSelect"><option value="all">すべて表示</option></select></div>
+          <div><label>表示フィルタ</label><select id="orientationMode">
+            <option value="all">すべて</option>
+            <option value="h00">h00 のみ</option>
+            <option value="0k0">0k0 のみ</option>
+            <option value="00l">00l のみ</option>
+            <option value="hk0">hk0 のみ</option>
+            <option value="h0l">h0l のみ</option>
+            <option value="0kl">0kl のみ</option>
+          </select></div>
+        </div>
+        <div class="grid3">
+          <div><label>許容差 / deg</label><input id="tol" type="number" value="0.20" step="0.01"></div>
+          <div><label>最小参照強度</label><input id="refMinI" type="number" value="8" step="1" min="0" max="100"></div>
+          <div><label>マーカー基準サイズ（全相まとめて）</label><input id="markerSize" type="number" value="12" step="1" min="1"></div>
+        </div>
+        <div class="grid2">
+          <div><label>全マーカー倍率</label><input id="markerScale" type="range" min="0.25" max="1.50" value="0.75" step="0.05"><div id="markerScaleLabel" class="small">倍率 0.75x</div></div>
+          <div><label>積み上げ時の自動縮小</label><select id="autoMarkerScale"><option value="on" selected>ON</option><option value="off">OFF</option></select></div>
+        </div>
+        <div class="grid2">
+          <div><label>ピーク上距離</label><input id="markerLift" type="number" value="15" step="1"></div>
+          <div><label>強いピークの hkl 表示閾値</label><input id="hklMinI" type="number" value="60" step="1" min="0" max="100"></div>
+        </div>
+        <div class="row"><input id="showMarkers" type="checkbox" checked><label for="showMarkers" style="margin:0;font-weight:500">参照マーカーを表示</label></div>
+        <div class="row"><input id="hideUnmatchedMarkers" type="checkbox" checked><label for="hideUnmatchedMarkers" style="margin:0;font-weight:500">実測ピークが無い角度の参照マーカーを隠す</label></div>
+        <div class="grid3">
+          <div><label>実測ピーク判定幅 / deg</label><input id="markerPeakWindow" type="number" value="0.35" step="0.01" min="0.01"></div>
+          <div><label>小ピーク判定しきい値</label><input id="markerPeakMin" type="number" value="2.0" step="0.5" min="0" max="100"></div>
+          <div><label>盛り上がり判定 / %</label><input id="markerPeakProminence" type="number" value="1.0" step="0.1" min="0"></div>
+        </div>
+        <div class="row"><input id="markerShoulderDetect" type="checkbox" checked><label for="markerShoulderDetect" style="margin:0;font-weight:500">肩ピーク・幅広ピークも参照マーカー表示の対象にする</label></div>
+        <div class="grid2">
+          <div><label>マーカー配置</label><select id="markerMode"><option value="curve">測定曲線の上</option><option value="fixed">各段の上端に固定</option></select></div>
+          <div><label>マーカー横ずらし</label><input id="markerJitter" type="number" value="0" step="1"></div>
+        </div>
+        <p class="small">小さいピークの参照マーカーが消える場合は、まず「判定幅」を少し広げるか、「小ピーク判定しきい値」を下げてください。ノイズまで拾う場合は「盛り上がり判定」を上げます。</p>
+        <div class="row"><input id="markerEach" type="checkbox" checked><label for="markerEach" style="margin:0;font-weight:500">各測定データにマーカーを表示</label></div>
+        <div class="row"><input id="showSticks" type="checkbox"><label for="showSticks" style="margin:0;font-weight:500">下部に参照スティックを表示（通常はOFF）</label></div>
+        <div class="row"><input id="hklLabel" type="checkbox"><label for="hklLabel" style="margin:0;font-weight:500">強い参照ピークに hkl を表示</label></div>
+      </fieldset>
+
+      <fieldset data-tab="probe">
+        <legend>ピーク調査</legend>
+        <div class="stickyNote">グラフ上の気になるピークをクリックすると、その2θ付近にある参照ピーク候補を一覧表示します。候補検索は表示ON/OFFに関係なく、読み込み済みの参照データ全体から行います。図を書き出すとき、この黒い調査マーカーは自動で消えます。</div>
+        <div class="grid2">
+          <div><label>候補探索幅 / deg</label><input id="probeWindow" type="number" value="0.35" step="0.01" min="0.01"></div>
+          <div><label>クリック時のピーク吸着</label><select id="probeSnap"><option value="on" selected>ON</option><option value="off">OFF</option></select></div>
+        </div>
+        <div class="buttonbar">
+          <button id="clearProbe" class="secondary" type="button">ピーク調査マーカーを消す</button>
+        </div>
+      </fieldset>
+
+      <fieldset data-tab="graph">
+        <legend>図の体裁</legend>
+        <div class="grid2">
+          <div><label>線幅</label><input id="lineWidth" type="number" value="1.4" step="0.1"></div>
+          <div><label>フォントサイズ</label><input id="fontSize" type="number" value="34" step="1"></div>
+        </div>
+        <div class="grid2">
+          <div><label>図幅 px</label><input id="svgW" type="number" value="760" step="10"></div>
+          <div><label>図高 px</label><input id="svgH" type="number" value="600" step="10"></div>
+        </div>
+        <div class="row"><input id="showYTicks" type="checkbox"><label for="showYTicks" style="margin:0;font-weight:500">Y軸数値を表示</label></div>
+        <div class="row"><input id="showLegend" type="checkbox" checked><label for="showLegend" style="margin:0;font-weight:500">上部に凡例を表示</label></div>
+      </fieldset>
+
+      <fieldset data-tab="save">
+        <legend>保存</legend>
+        <div class="grid2">
+          <div><label>プロジェクト名</label><input id="projectName" type="text" value="xrd_project" placeholder="例: QS_1200C_series"></div>
+          <div><label>保存形式</label><div class="small" style="padding:8px 0">作業状態は .xrdproj.json、参照だけは .xrdrefs.json で保存します。</div></div>
+        </div>
+        <div class="buttonbar">
+          <button id="undoBtn" class="secondary" type="button">元に戻す Ctrl+Z</button>
+          <button id="redoBtn" class="secondary" type="button">やり直し Ctrl+Y</button>
+          <button id="renderBtn" type="button">再描画</button>
+          <button id="saveSvg" class="secondary" type="button">SVG保存</button>
+          <button id="savePng" class="secondary" type="button">PNG保存</button>
+          <button id="saveCsv" class="secondary" type="button">解析CSV</button>
+        </div>
+        <div class="buttonbar">
+          <button id="saveProject" class="secondary" type="button">作業状態を保存</button>
+          <button id="loadProject" class="secondary" type="button">作業状態を読込</button>
+          <button id="saveRefLibrary" class="secondary" type="button">参照データだけ保存</button>
+          <button id="loadRefLibrary" class="secondary" type="button">参照データを追加読込</button>
+          <input id="projectFile" type="file" accept=".json,.xrdproj,application/json" style="display:none" />
+          <input id="refLibraryFile" type="file" accept=".json,.xrdrefs,application/json" style="display:none" />
+        </div>
+        <p class="small">測定データ、参照データ、表示名、コメント、配色、マーカー、表示範囲、ズーム状態まで1つのプロジェクトファイルに保存できます。後から参照データを追加した場合も、そのまま作業状態として保存できます。</p>
+      </fieldset>
+      <div id="status" class="status"></div>
+    </section>
+
+    <section class="card chartwrap">
+      <div id="svgHost"></div>
+      <div class="tables">
+        <div class="tablebox"><div class="tableHeader"><label for="candidateSampleSelect">候補相を表示する測定データ</label><select id="candidateSampleSelect"><option value="__all__">すべて</option></select></div><table id="summaryTable"><thead><tr><th>sample</th><th>候補相</th><th>可能性</th><th>メイン</th><th>一致</th><th>欠損</th><th>メモ</th></tr></thead><tbody></tbody></table></div>
+        <div class="tablebox"><table id="peakTable"><thead><tr><th>sample</th><th>obs 2θ</th><th>I_norm</th><th>ref 2θ</th><th>phase</th><th>Δ2θ</th><th>hkl</th></tr></thead><tbody></tbody></table></div>
+        <div class="tablebox"><div id="probeInfo" class="probeInfo probeEmpty">グラフ上の気になるピークをクリックすると、ここに全参照データから由来候補が出ます。</div><table id="probeTable"><thead><tr><th>候補相</th><th>ref 2θ</th><th>Δ2θ</th><th>I</th><th>hkl</th><th>d</th></tr></thead><tbody></tbody></table></div>
       </div>
-      <div>
-        <table id="matchTable">
-          <thead><tr><th>2θ obs</th><th>phase</th><th>2θ ref</th><th>delta</th><th>hkl</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-</main>
+    </section>
+  </main>
 
 <script>
 'use strict';
-const state={measured:[],refs:[],matches:[],selectedRef:-1,selectedMatch:-1,lastSvg:''};
-const colors=['#1455d9','#d50000','#0a9d31','#5a00cc','#d49a00','#444444'];
-const markers=['circle','triangle_down','diamond','triangle_up','square','cross'];
-const $=id=>document.getElementById(id);
-const n=(id,fb=0)=>{const v=Number($(id).value);return Number.isFinite(v)?v:fb};
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const state = { measured: [], refs: [], analyses: [], mhTraces: [], mtTraces: [], lastSvgText: '', zoomView: null, zoomHistory: [], mhZoomView: null, mhZoomHistory: [], mtZoomView: null, mtZoomHistory: [], probe: null, undoStack: [], redoStack: [], applyingHistory: false, editStartSnapshot: null };
+const ns = 'http://www.w3.org/2000/svg';
+const palette = ['#e11d48','#2563eb','#059669','#8b5cf6','#d97706','#0f766e','#dc2626','#7c3aed'];
+const markerOptions = ['triangle_down','triangle_up','triangle_left','triangle_right','circle','diamond','square','cross','plus','star','star6','wedge_down','wedge_up','wedge_left','wedge_right'];
+const SETTING_IDS = ['projectName','graphMode','layoutRatio','xMin','xMax','offset','yPad','topPad','order','labelPos','normalize','baseline','refSelect','orientationMode','textureMode','textureBoost','candidateLimit','minPeakI','autoShift','maxShift','mainPeakRequired','tol','refMinI','markerSize','markerScale','autoMarkerScale','markerLift','hklMinI','showMarkers','hideUnmatchedMarkers','markerPeakWindow','markerPeakMin','markerPeakProminence','markerShoulderDetect','probeWindow','probeSnap','markerMode','markerJitter','markerEach','showSticks','hklLabel','lineWidth','fontSize','svgW','svgH','showYTicks','showLegend','mhXMin','mhXMax','mhAutoY','mhYMin','mhYMax','mhMassMode','mhManualMass','mhSmooth','mhPointStep','mhXAxisLabel','mhYAxisLabel','mhShowZero','mhMirrorTicks','mtXMin','mtXMax','mtAutoY','mtYMin','mtYMax','mtMassMode','mtManualMass','mtSmooth','mtPointStep','mtShowD1','mtShowD2','mtDerivativeScale','mtTcMin','mtTcMax','mtTcCandidateCount','mtXAxisLabel','mtYAxisLabel','mtShowZero','mtMirrorTicks'];
+const BUILTIN_REFERENCES = [{"label": "CuO", "name": "CuO PDF 00-048-1548.txt", "color": "#e11d48", "text": "l k h I 2θ d\n0 1 1 13 32.509 2.75201\n2 0 0 37 35.418 2.53236\n-1 1 1 100 35.544 2.52367\n1 1 1 99 38.709 2.32429\n0 0 2 21 38.903 2.31315\n-2 1 1 3 46.260 1.96095\n-2 0 2 30 48.717 1.86764\n2 1 1 1 51.344 1.77808\n0 2 0 7 53.487 1.71179\n1 2 0 1 56.743 1.62105\n2 0 2 10 58.265 1.58227\n-3 1 1 20 61.526 1.50600\n2 2 0 10 65.813 1.41789\n-1 1 3 15 66.222 1.41013\n0 1 3 1 66.449 1.40586\n3 1 1 6 67.905 1.37922\n0 2 2 14 68.125 1.37530\n-1 2 2 1 68.907 1.36158\n-2 1 3 1 71.683 1.31552\n1 1 3 5 72.373 1.30467\n1 2 2 1 72.944 1.29586\n4 0 0 6 74.978 1.26567\n-2 2 2 5 75.245 1.26184\n3 2 0 1 79.733 1.20171\n-4 0 2 2 80.157 1.19642\n-4 1 1 1 80.241 1.19538\n-3 1 3 4 82.362 1.16989\n2 2 2 2 83.065 1.16176\n0 0 4 2 83.568 1.15604\n2 1 3 2 83.568 1.15604\n-2 0 4 1 86.533 1.12388\n-3 2 2 1 86.775 1.12137\n4 1 1 1 87.968 1.10921\n0 3 1 1 88.054 1.10835\n-1 3 1 3 89.790 1.09137\n1 3 1 1 91.729 1.07330\n4 0 2 1 95.565 1.04010\n4 2 0 1 98.392 1.01764\n3 2 2 1 98.392 1.01764\n3 1 3 2 99.684 1.00789\n2 0 4 1 101.935 0.99164\n-5 1 1 2 103.357 0.98184\n-4 2 2 2 103.565 0.98044\n0 2 4 2 107.049 0.95795\n-3 3 1 1 109.519 0.94314\n-2 2 4 3 110.170 0.93939\n-4 0 4 1 111.191 0.93362\n5 1 1 2 113.489 0.92115\n-1 3 3 1 114.060 0.91816\n1 2 4 1 114.060 0.91816\n1 1 3 1 115.744 0.90959\n5 1 -1 1 116.838 0.90421\n2 2 4 1 120.221 0.88848\n3 1 -5 3 120.509 0.88720\n3 3 1 3 120.509 0.88720", "visible": false}, {"label": "FeO", "name": "FeO PDF 00-006-0615.txt", "color": "#f97316", "text": "l k h I 2θ d\n1 1 1 80 36.041 2.49000\n0 0 2 100 41.928 2.15300\n0 2 2 60 60.766 1.52300\n1 1 3 25 72.740 1.29900\n2 2 2 15 76.590 1.24300\n0 0 4 15 91.324 1.07700\n1 3 3 10 102.458 0.98800\n0 2 4 15 106.225 0.96310\n", "visible": false}, {"label": "M-type BaFe12O19", "name": "M-type BaFe12O19 PDF 00-039-1433.txt", "color": "#0f766e", "text": "l k h I 2θ d\n1 0 1 7 17.766 4.98843\n2 0 1 14 18.973 4.67371\n6 0 0 18 22.973 3.86819\n0 1 1 55 30.296 2.94780\n8 0 0 32 30.800 2.90070\n2 1 1 9 31.262 2.85888\n7 0 1 100 32.149 2.78200\n4 1 1 98 34.090 2.62791\n0 0 2 11 35.121 2.55309\n8 0 1 10 35.572 2.52175\n3 0 2 60 37.047 2.42466\n10 0 0 1 38.746 2.32216\n9 0 1 4 39.086 2.30274\n5 0 2 29 40.279 2.23724\n6 0 2 18 42.389 2.13063\n10 0 1 3 42.759 2.11305\n11 0 1 9 46.542 1.94973\n12 0 0 1 46.952 1.93365\n10 1 1 6 49.993 1.82292\n9 0 2 10 50.253 1.81410\n10 0 2 3 53.284 1.71783\n0 0 3 8 53.841 1.70136\n2 0 3 5 54.443 1.68397\n7 1 2 53 55.006 1.66805\n14 0 0 8 55.361 1.65820\n4 0 3 30 56.295 1.63288\n11 0 2 58 56.537 1.62646\n12 1 1 10 56.868 1.61778\n8 1 2 7 57.310 1.60635\n14 0 1 3 58.455 1.57758\n9 1 2 2 59.775 1.54586\n12 0 2 3 59.962 1.54148\n10 1 2 2 62.550 1.48378\n15 0 1 6 62.680 1.48102\n0 2 2 63 63.024 1.47376\n13 0 2 5 63.545 1.46292\n16 0 0 1 64.122 1.45114\n11 1 2 3 65.505 1.42381\n14 0 2 13 67.292 1.39028\n6 2 2 4 68.027 1.37704\n8 2 2 9 71.791 1.31381\n13 1 2 4 72.006 1.31042\n7 1 3 15 72.522 1.30236\n12 0 3 3 74.159 1.27761\n3 0 4 6 75.446 1.25898\n18 0 1 4 76.060 1.25034\n13 0 3 3 77.381 1.23226\n6 0 4 3 78.937 1.21182\n15 1 2 3 79.289 1.20732\n17 0 2 3 79.557 1.20393\n18 1 1 7 81.358 1.18177\n0 2 3 6 82.233 1.17140\n", "visible": false}, {"label": "spinel CuFe2O4", "name": "spinel CuFe2O4 PDF 01-074-8585.txt", "color": "#dc2626", "text": "l k h I 2θ d\n1 1 1 122 18.338 4.83415\n0 2 2 293 30.165 2.96030\n1 1 3 999 35.531 2.52455\n2 2 2 85 37.167 2.41708\n0 0 4 198 43.184 2.09325\n1 3 3 5 47.283 1.92090\n2 2 4 79 53.577 1.70913\n1 1 5 264 57.115 1.61138\n0 4 4 332 62.721 1.48015\n1 3 5 9 65.949 1.41530\n2 4 4 1 67.007 1.39550\n0 2 6 24 71.161 1.32389\n3 3 5 60 74.209 1.27687\n2 2 6 26 75.214 1.26228\n4 4 4 19 79.194 1.20854\n1 5 5 4 82.143 1.17245\n2 4 6 23 87.015 1.11889\n1 3 7 79 89.926 1.09007\n0 0 8 29 94.780 1.04663\n3 3 7 1 97.709 1.02292\n4 4 6 1 98.688 1.01538\n2 2 8 10 102.637 0.98677\n1 5 7 41 105.637 0.96683\n2 6 6 9 106.647 0.96045\n0 4 8 17 110.743 0.93613\n1 1 9 2 113.889 0.91906\n2 4 8 1 114.954 0.91357\n4 6 6 4 119.314 0.89257\n1 3 9 29 122.710 0.87773\n4 4 8 58 128.684 0.85457\n3 3 9 1 132.517 0.84152\n0 2 10 11 139.503 0.82104\n1 5 9 36 144.215 0.80945\n2 2 10 8 145.909 0.80569\n", "visible": false}, {"label": "W-type BaFe18O27", "name": "W-type BaFe18O27.txt", "color": "#7c3aed", "text": "l k h I 2θ d\n2 0 0 2 5.378 16.42000\n4 0 0 4 10.767 8.21000\n6 0 0 2 16.181 5.47333\n0 0 1 6 17.401 5.09223\n1 0 1 11 17.611 5.03209\n2 0 1 102 18.225 4.86371\n3 0 1 39 19.208 4.61711\n4 0 1 11 20.507 4.32742\n8 0 0 65 21.631 4.10500\n5 0 1 7 22.070 4.02437\n6 0 1 14 23.848 3.72821\n7 0 1 4 25.800 3.45035\n10 0 0 72 27.132 3.28400\n8 0 1 3 27.894 3.19589\n9 0 1 189 30.105 2.96603\n0 1 1 446 30.378 2.94000\n2 1 1 37 30.873 2.89398\n10 0 1 613 32.414 2.75986\n12 0 0 110 32.696 2.73667\n6 1 1 999 34.605 2.59000\n11 0 1 353 34.806 2.57547\n1 0 2 139 35.329 2.53850\n2 0 2 71 35.655 2.51605\n3 0 2 76 36.193 2.47992\n4 0 2 301 36.933 2.43186\n12 0 1 11 37.271 2.41060\n8 1 1 82 37.601 2.39021\n5 0 2 88 37.868 2.37398\n14 0 0 3 38.342 2.34571\n6 0 2 84 38.984 2.30856\n13 0 1 1 39.801 2.26300\n7 0 2 17 40.269 2.23779\n10 1 1 3 41.178 2.19045\n8 0 2 263 41.711 2.16371\n14 0 1 44 42.391 2.13054\n9 0 2 110 43.297 2.08804\n16 0 0 2 44.086 2.05250\n15 0 1 15 45.017 2.01219\n10 0 2 15 45.017 2.01219\n12 1 1 8 45.231 2.00315\n11 0 2 8 46.859 1.93727\n0 1 2 2 47.184 1.92468\n1 1 2 2 47.270 1.92138\n2 1 2 14 47.527 1.91159\n16 0 1 17 47.737 1.90368\n3 1 2 6 47.953 1.89560\n4 1 2 3 48.544 1.87388\n12 0 2 19 48.816 1.86410\n5 1 2 1 49.297 1.84701\n14 1 1 16 49.682 1.83361\n18 0 0 2 49.949 1.82444\n6 1 2 5 50.206 1.81569\n17 0 1 29 50.489 1.80617\n13 0 2 29 50.878 1.79328\n7 1 2 1 51.264 1.78066\n8 1 2 1 52.467 1.74264\n14 0 2 23 53.040 1.72517\n9 1 2 52 53.806 1.70238\n1 0 3 85 53.977 1.69741\n0 0 3 85 53.977 1.69741\n2 0 3 10 54.288 1.68841\n16 1 1 22 54.479 1.68295\n3 0 3 12 54.675 1.67736\n15 0 2 293 55.277 1.66051\n10 1 2 293 55.277 1.66051\n20 0 0 55 55.955 1.64200\n5 0 3 55 55.955 1.64200\n19 0 1 31 56.152 1.63671\n6 0 3 181 56.736 1.62124\n11 1 2 190 56.873 1.61765\n7 0 3 177 57.640 1.59794\n16 0 2 177 57.640 1.59794\n12 1 2 2 58.588 1.57432\n8 0 3 15 58.822 1.56860\n20 0 1 14 59.064 1.56276\n18 1 1 15 59.590 1.55021\n17 0 2 63 60.071 1.53895\n9 0 3 63 60.071 1.53895\n10 0 3 1 61.440 1.50790\n22 0 0 3 62.133 1.49273\n14 1 2 24 62.357 1.48792\n18 0 2 50 62.586 1.48301\n0 2 2 367 63.204 1.47000\n15 1 2 1 64.328 1.44699\n4 2 2 1 64.328 1.44699\n12 0 3 3 64.554 1.44247\n19 0 2 76 65.184 1.43004\n1 1 3 1 66.105 1.41233\n0 1 3 1 66.105 1.41233\n2 1 3 5 66.381 1.40713\n16 1 2 12 66.550 1.40397\n3 1 3 6 66.725 1.40072\n4 1 3 1 67.204 1.39189\n8 2 2 10 67.642 1.38394\n20 0 2 28 67.865 1.37993\n5 1 3 28 67.865 1.37993\n14 0 3 14 68.134 1.37514\n6 1 3 3 68.520 1.36833\n24 0 0 3 68.520 1.36833\n17 1 2 17 68.800 1.36345\n7 1 3 1 69.443 1.35238\n15 0 3 16 70.076 1.34171\n10 2 2 16 70.076 1.34171\n21 0 2 16 70.630 1.33254\n22 1 1 14 70.724 1.33099\n24 0 1 4 71.312 1.32146\n9 1 3 16 71.584 1.31711\n16 0 3 7 72.157 1.30805\n10 1 3 63 72.842 1.29743\n12 2 2 51 73.000 1.29500\n22 0 2 2 73.480 1.28773\n19 1 2 2 73.596 1.28598\n11 1 3 34 74.222 1.27668\n0 0 4 22 74.469 1.27306\n25 0 1 28 74.544 1.27196\n1 0 4 28 74.544 1.27196\n2 0 4 17 74.730 1.26925\n3 0 4 5 75.057 1.26453\n4 0 4 24 75.514 1.25802\n12 1 3 13 75.724 1.25505\n20 1 2 15 76.144 1.24917\n5 0 4 15 76.144 1.24917\n23 0 2 9 76.400 1.24562\n14 2 2 9 76.400 1.24562\n18 0 3 9 76.609 1.24274\n6 0 4 19 76.769 1.24055\n24 1 1 19 76.769 1.24055\n7 0 4 2 77.652 1.22863\n26 0 1 5 77.855 1.22593\n8 0 4 19 78.619 1.21593\n21 1 2 10 78.792 1.21369\n14 1 3 10 79.083 1.20995\n19 0 3 10 79.083 1.20995\n24 0 2 9 79.449 1.20530\n9 0 4 11 79.710 1.20200\n16 2 2 1 80.263 1.19511\n15 1 3 1 80.925 1.18699\n10 0 4 1 80.925 1.18699\n27 0 1 1 81.254 1.18302\n22 1 2 5 81.543 1.17955\n20 0 3 5 81.543 1.17955\n28 0 0 10 82.108 1.17286\n11 0 4 6 82.264 1.17103\n25 0 2 3 82.577 1.16739\n1 2 3 3 82.577 1.16739\n2 2 3 3 82.758 1.16529\n16 1 3 6 82.914 1.16349\n26 1 1 31 83.175 1.16051\n3 2 3 31 83.175 1.16051\n4 2 3 15 83.520 1.15659\n12 0 4 3 83.725 1.15428\n23 1 2 2 84.402 1.14673\n18 2 2 2 84.590 1.14467\n6 2 3 2 84.788 1.14250\n28 0 1 2 84.788 1.14250\n17 1 3 8 85.006 1.14012\n13 0 4 6 85.309 1.13685\n7 2 3 2 85.610 1.13362\n26 0 2 2 85.809 1.13150\n8 2 3 1 86.558 1.12362\n22 0 3 6 86.816 1.12094\n14 0 4 5 87.014 1.11890\n24 1 2 3 87.374 1.11522\n9 2 3 10 87.631 1.11261\n1 1 4 20 87.768 1.11122\n0 1 4 20 87.768 1.11122\n2 1 4 13 88.021 1.10868\n29 0 1 7 88.349 1.10541\n3 1 4 7 88.349 1.10541\n15 0 4 48 88.829 1.10067\n10 2 3 48 88.829 1.10067\n27 0 2 27 89.154 1.09750\n30 0 0 53 89.388 1.09523\n20 2 2 53 89.388 1.09523\n23 0 3 28 89.655 1.09266\n6 1 4 60 90.039 1.08900\n28 1 1 60 90.039 1.08900\n25 1 2 27 90.463 1.08499\n7 1 4 34 90.798 1.08186\n16 0 4 34 90.798 1.08186\n8 1 4 4 91.805 1.07261\n30 0 1 11 92.069 1.07022\n20 1 3 11 92.069 1.07022\n28 0 2 9 92.619 1.06530\n24 0 3 9 92.619 1.06530\n17 0 4 14 92.880 1.06299\n9 1 4 14 92.880 1.06299\n13 2 3 6 93.182 1.06034\n26 1 2 4 93.682 1.05599\n10 1 4 2 94.077 1.05259\n22 2 2 3 94.690 1.04739\n21 1 3 3 94.690 1.04739\n14 2 3 6 94.888 1.04573\n18 0 4 8 95.092 1.04402\n11 1 4 4 95.405 1.04142\n29 0 2 1 96.228 1.03469\n12 1 4 1 96.864 1.02958\n30 1 1 15 97.439 1.02503\n19 0 4 15 97.439 1.02503", "visible": false}, {"label": "X-type BaFe28O46", "name": "X-type BaFe28O46 PDF 01-073-2034.txt", "color": "#2563eb", "text": "l k h I 2θ d\n3 0 0 1 3.149 28.03670\n6 0 0 7 6.300 14.01830\n9 0 0 7 9.456 9.34556\n12 0 0 1 12.619 7.00917\n15 0 0 2 15.792 5.60733\n2 1 0 12 17.529 5.05531\n4 0 1 47 17.908 4.94917\n5 1 0 46 18.187 4.87382\n7 0 1 55 18.912 4.68856\n18 0 0 55 18.912 4.68856\n8 1 0 19 19.352 4.58297\n10 0 1 4 20.371 4.35609\n11 1 0 1 20.943 4.23836\n21 0 0 73 22.177 4.00524\n13 0 1 73 22.177 4.00524\n14 1 0 18 22.875 3.88458\n16 0 1 14 24.316 3.65757\n24 0 0 30 25.394 3.50458\n19 0 1 1 26.661 3.34090\n20 1 0 4 27.484 3.24263\n27 0 0 38 28.632 3.11519\n22 0 1 24 29.186 3.05739\n23 1 0 64 30.060 2.97036\n0 1 1 462 30.378 2.94000\n6 1 1 40 31.056 2.87740\n30 0 0 493 31.854 2.80707\n25 0 1 493 31.854 2.80707\n26 1 0 400 32.771 2.73058\n12 1 1 61 33.013 2.71116\n15 1 1 999 34.415 2.60381\n28 0 1 151 34.642 2.58730\n1 2 0 87 35.237 2.54495\n2 0 2 87 35.237 2.54495\n4 2 0 78 35.486 2.52765\n29 1 0 121 35.594 2.52023\n5 0 2 121 35.594 2.52023\n18 1 1 56 36.029 2.49081\n7 2 0 56 36.029 2.49081\n8 0 2 14 36.273 2.47459\n10 2 0 164 36.854 2.43691\n11 0 2 220 37.189 2.41571\n21 1 1 101 37.946 2.36926\n13 2 0 101 37.946 2.36926\n14 0 2 4 38.366 2.34428\n36 0 0 6 38.513 2.33565\n32 1 0 6 38.513 2.33565\n16 2 0 34 39.286 2.29149\n17 0 2 61 39.784 2.26393\n34 0 1 7 40.508 2.22515\n19 2 0 92 40.854 2.20710\n20 0 2 125 41.423 2.17805\n35 1 0 88 41.518 2.17329\n39 0 0 3 41.853 2.15667\n27 1 1 3 42.233 2.13814\n22 2 0 136 42.629 2.11918\n23 0 2 27 43.264 2.08954\n37 0 1 10 43.565 2.07580\n25 2 0 21 44.594 2.03026\n30 1 1 21 44.594 2.03026\n26 0 2 1 45.288 2.00076\n42 0 0 1 45.288 2.00076\n28 2 0 20 46.698 1.94357\n40 0 1 20 46.698 1.94357\n2 2 1 3 47.236 1.92267\n1 1 2 3 47.236 1.92267\n4 1 2 7 47.393 1.91667\n5 2 1 10 47.511 1.91221\n29 0 2 10 47.511 1.91221\n7 1 2 18 47.759 1.90285\n41 1 0 18 47.759 1.90285\n10 1 2 1 48.481 1.87619\n45 0 0 1 48.676 1.86911\n11 2 1 1 48.750 1.86646\n31 2 0 6 49.025 1.85664\n13 1 2 1 49.361 1.84479\n32 0 2 42 49.822 1.82879\n36 1 1 42 49.822 1.82879\n43 0 1 25 49.904 1.82597\n16 1 2 4 50.454 1.80735\n44 1 0 10 50.988 1.78965\n34 2 0 28 51.463 1.77426\n20 2 1 2 52.226 1.75011\n48 0 0 2 52.226 1.75011\n35 0 2 3 52.306 1.74764\n39 1 1 6 52.587 1.73896\n22 1 2 6 53.241 1.71913\n46 0 1 6 53.241 1.71913\n23 2 1 18 53.779 1.70319\n37 2 0 71 53.977 1.69741\n0 0 3 71 53.977 1.69741\n3 3 0 39 54.083 1.69431\n6 3 0 9 54.403 1.68510\n38 0 2 197 54.914 1.67063\n25 1 2 197 54.914 1.67063\n26 2 1 141 55.511 1.65407\n42 1 1 141 55.511 1.65407\n51 0 0 120 55.688 1.64922\n12 3 0 120 55.688 1.64922\n15 3 0 190 56.607 1.62461\n28 1 2 291 56.733 1.62132\n40 2 0 291 56.733 1.62132\n29 2 1 32 57.413 1.60370\n50 1 0 110 57.659 1.59745\n41 0 2 110 57.659 1.59745\n45 1 1 18 58.465 1.57733\n21 3 0 8 59.060 1.56285\n54 0 0 5 59.280 1.55759\n43 2 0 11 59.551 1.55115\n32 2 1 11 59.551 1.55115\n52 0 1 4 59.957 1.54160\n24 3 0 43 60.516 1.52869\n44 0 2 43 60.516 1.52869\n34 1 2 3 60.940 1.51907\n53 1 0 4 61.116 1.51511\n48 1 1 4 61.561 1.50522\n35 2 1 11 61.696 1.50226\n27 3 0 1 62.236 1.49051\n46 2 0 7 62.485 1.48518\n37 1 2 358 63.204 1.47000\n0 2 2 358 63.204 1.47000\n55 0 1 196 63.461 1.46465\n30 3 0 5 64.078 1.45203\n56 1 0 4 64.648 1.44061\n51 1 1 7 64.761 1.43836\n12 2 2 7 64.761 1.43836\n15 2 2 18 65.532 1.42329\n49 2 0 18 65.532 1.42329\n40 1 2 18 65.717 1.41974\n2 1 3 2 66.148 1.41153\n1 3 1 2 66.148 1.41153\n4 3 1 4 66.273 1.40916\n5 1 3 5 66.368 1.40738\n7 3 1 48 66.574 1.40353\n50 0 2 48 66.574 1.40353\n8 1 3 26 66.776 1.39976\n10 3 1 1 67.153 1.39283\n11 1 3 1 67.371 1.38884\n13 3 1 11 67.862 1.37999\n21 2 2 11 67.862 1.37999\n14 1 3 8 68.065 1.37636\n54 1 1 8 68.065 1.37636\n43 1 2 10 68.316 1.37191\n59 1 0 10 68.316 1.37191\n16 3 1 21 68.694 1.36529\n52 2 0 21 68.694 1.36529\n24 2 2 9 69.256 1.35558\n44 2 1 9 69.256 1.35558\n19 3 1 4 69.773 1.34679\n53 0 2 4 69.773 1.34679\n20 1 3 1 70.248 1.33885\n39 3 0 2 70.551 1.33384\n27 2 2 10 70.820 1.32942\n61 0 1 10 70.820 1.32942\n22 3 1 6 71.103 1.32482\n46 1 2 6 71.103 1.32482\n23 1 3 13 71.476 1.31882\n57 1 1 13 71.476 1.31882\n47 2 1 6 71.976 1.31089\n62 1 0 6 71.976 1.31089\n30 2 2 70 72.530 1.30224\n25 3 1 70 72.530 1.30224\n56 0 2 47 73.043 1.29435\n26 1 3 47 73.043 1.29435\n28 3 1 12 74.125 1.27811\n66 0 0 7 74.378 1.27439\n2 4 0 13 74.506 1.27252\n64 0 1 13 74.506 1.27252\n5 4 0 16 74.694 1.26978\n29 1 3 16 74.694 1.26978\n7 0 4 13 74.914 1.26660\n50 2 1 13 74.914 1.26660\n60 1 1 12 75.000 1.26535\n10 0 4 13 75.464 1.25872\n11 4 0 26 75.673 1.25577\n45 0 3 26 75.673 1.25577\n65 1 0 15 75.788 1.25414\n31 3 1 13 75.886 1.25277\n13 0 4 6 76.148 1.24911\n14 4 0 3 76.416 1.24540\n32 1 3 2 76.501 1.24422\n36 2 2 2 76.501 1.24422\n16 0 4 3 76.935 1.23828\n52 1 2 3 76.935 1.23828\n17 4 0 4 77.333 1.23290\n34 3 1 2 77.811 1.22652\n19 4 0 8 78.042 1.22347\n53 2 1 8 78.042 1.22347\n35 1 3 12 78.425 1.21845\n20 4 0 12 78.425 1.21845\n39 2 2 11 78.643 1.21561\n63 1 1 11 78.643 1.21561", "visible": false}, {"label": "Y-type Ba2Cu2Fe12O22", "name": "Y-type Ba2Cu2Fe12O22 PDF 00-054-0099.txt", "color": "#059669", "text": "l k h I 2θ d\n1 0 1 4 17.610 5.03227\n9 0 0 2 18.390 4.82055\n4 0 1 10 19.320 4.59055\n5 1 0 4 20.270 4.37750\n8 1 0 7 23.990 3.70646\n12 0 0 14 24.580 3.61881\n10 0 1 2 27.020 3.29730\n11 1 0 3 28.640 3.11437\n0 1 1 100 30.520 2.92668\n15 0 0 20 30.870 2.89429\n3 1 1 35 31.150 2.86891\n13 0 1 80 32.070 2.78867\n6 1 1 29 32.970 2.71458\n14 1 0 50 33.850 2.64599\n1 2 0 8 35.440 2.53084\n9 1 1 75 35.850 2.50283\n4 2 0 23 36.370 2.46823\n5 0 2 30 36.910 2.43335\n16 0 1 10 37.560 2.39272\n7 2 0 12 38.320 2.34699\n8 0 2 2 39.190 2.29687\n10 2 0 69 41.200 2.18934\n20 1 0 5 45.400 1.99608\n16 2 0 11 49.130 1.85291\n17 0 2 10 50.700 1.79915\n19 2 0 10 53.970 1.69760\n0 0 3 16 54.230 1.69008\n13 1 2 27 55.220 1.66210\n6 3 0 14 55.800 1.64619\n14 2 1 19 56.390 1.63035\n27 0 0 6 57.230 1.60840\n9 0 3 11 57.740 1.59541\n16 1 2 5 58.950 1.56551\n22 2 0 12 59.280 1.55758\n23 0 2 7 61.160 1.51413\n0 2 2 44 63.500 1.46385\n15 0 3 19 63.700 1.45974\n6 2 2 5 64.940 1.43483\n12 2 2 2 69.170 1.35705\n15 2 2 5 72.270 1.30628\n30 1 1 6 72.830 1.29761\n14 1 3 5 73.950 1.28070\n34 0 1 2 76.910 1.23862\n10 0 4 3 78.540 1.21695", "visible": false}, {"label": "Z-type Ba3Co2Fe24O41", "name": "Z-type Ba3Co2Fe24O41 PDF 01-072-8381.txt", "color": "#d97706", "text": "l k h I 2θ d\n2 0 0 3 3.379 26.12500\n4 0 0 38 6.761 13.06250\n6 0 0 44 10.150 8.70833\n8 0 0 1 13.547 6.53125\n10 0 0 8 16.956 5.22500\n1 0 1 11 17.485 5.06805\n2 0 1 91 17.732 4.99800\n3 0 1 3 18.136 4.88745\n4 0 1 19 18.688 4.74432\n5 0 1 88 19.375 4.57753\n6 0 1 25 20.185 4.39573\n12 0 0 14 20.380 4.35417\n7 0 1 10 21.103 4.20647\n8 0 1 1 22.118 4.01579\n9 0 1 82 23.216 3.82818\n14 0 0 171 23.823 3.73214\n10 0 1 10 24.389 3.64672\n11 0 1 23 25.626 3.47339\n12 0 1 1 26.920 3.30928\n16 0 0 14 27.287 3.26562\n13 0 1 6 28.265 3.15487\n0 1 1 867 30.379 2.93990\n18 0 0 174 30.777 2.90278\n15 0 1 329 31.082 2.87501\n4 1 1 413 31.158 2.86816\n6 1 1 24 32.108 2.78545\n16 0 1 999 32.547 2.74890\n8 1 1 464 33.397 2.68083\n17 0 1 87 34.044 2.63135\n10 1 1 623 34.993 2.56217\n0 0 2 123 35.265 2.54301\n1 0 2 123 35.265 2.54301\n2 0 2 75 35.394 2.53402\n18 0 1 106 35.571 2.52180\n3 0 2 106 35.571 2.52180\n4 0 2 105 35.907 2.49900\n5 0 2 23 36.287 2.47367\n6 0 2 332 36.748 2.44373\n12 1 1 254 36.860 2.43651\n19 0 1 84 37.126 2.41968\n7 0 2 169 37.285 2.40970\n22 0 0 65 37.898 2.37216\n8 0 2 65 37.898 2.37216\n20 0 1 26 38.707 2.32443\n14 1 1 2 38.968 2.30944\n10 0 2 2 39.335 2.28876\n11 0 2 185 40.153 2.24400\n21 0 1 106 40.312 2.23550\n12 0 2 338 41.033 2.19786\n24 0 0 16 41.443 2.17708\n13 0 2 197 41.973 2.15081\n22 0 1 197 41.973 2.15081\n14 0 2 6 42.969 2.10323\n23 0 1 4 43.591 2.07464\n18 1 1 34 43.792 2.06557\n15 0 2 14 44.018 2.05550\n16 0 2 16 45.077 2.00962\n26 0 0 16 45.077 2.00962\n24 0 1 47 45.263 2.00180\n17 0 2 1 46.267 1.96069\n20 1 1 11 46.463 1.95285\n25 0 1 26 46.956 1.93348\n2 1 2 16 47.322 1.91941\n3 1 2 38 47.461 1.91409\n18 0 2 38 47.461 1.91409\n4 1 2 4 47.727 1.90406\n5 1 2 13 48.029 1.89278\n6 1 2 5 48.396 1.87927\n28 0 0 6 48.761 1.86607\n19 0 2 6 48.761 1.86607\n7 1 2 6 48.828 1.86366\n8 1 2 53 49.284 1.84747\n22 1 1 53 49.284 1.84747\n20 0 2 124 49.980 1.82336\n10 1 2 4 50.494 1.80599\n11 1 2 7 51.169 1.78376\n21 0 2 10 51.301 1.77948\n12 1 2 1 51.901 1.76032\n24 1 1 1 52.162 1.75212\n28 0 1 1 52.162 1.75212\n13 1 2 21 52.660 1.73670\n22 0 2 21 52.660 1.73670\n23 0 2 144 53.979 1.69735\n0 0 3 144 53.979 1.69735\n2 0 3 96 54.102 1.69378\n4 0 3 105 54.422 1.68458\n15 1 2 105 54.422 1.68458\n16 1 2 338 55.365 1.65808\n26 1 1 338 55.365 1.65808\n24 0 2 323 55.490 1.65464\n7 0 3 323 55.490 1.65464\n8 0 3 86 55.926 1.64278\n17 1 2 83 56.298 1.63281\n32 0 0 83 56.298 1.63281\n9 0 3 48 56.435 1.62915\n10 0 3 211 56.958 1.61543\n25 0 2 211 56.958 1.61543\n18 1 2 40 57.399 1.60407\n11 0 3 37 57.554 1.60011\n31 0 1 37 57.554 1.60011\n12 0 3 22 58.299 1.58144\n28 1 1 122 58.461 1.57744\n26 0 2 122 58.461 1.57744\n32 0 1 6 59.395 1.55483\n20 1 2 13 59.619 1.54953\n14 0 3 7 59.809 1.54507\n27 0 2 10 59.997 1.54066\n34 0 0 6 60.165 1.53676\n15 0 3 1 60.641 1.52584\n21 1 2 1 60.796 1.52233\n33 0 1 14 61.259 1.51193\n28 0 2 64 61.567 1.50510\n16 0 3 64 61.567 1.50510\n22 1 2 5 62.016 1.49528\n23 1 2 467 63.206 1.46995\n0 2 2 467 63.206 1.46995\n18 0 3 254 63.433 1.46524\n2 2 2 254 63.433 1.46524\n36 0 0 11 64.110 1.45139\n24 1 2 25 64.580 1.44195\n30 0 2 14 64.805 1.43750\n35 0 1 2 64.978 1.43408\n8 2 2 2 64.978 1.43408\n32 1 1 24 65.318 1.42743\n20 0 3 15 65.530 1.42333\n10 2 2 16 65.924 1.41577\n25 1 2 16 65.924 1.41577\n1 1 3 10 66.135 1.41177\n0 1 3 10 66.135 1.41177\n2 1 3 8 66.217 1.41022\n4 1 3 70 66.472 1.40542\n31 0 2 70 66.472 1.40542\n21 0 3 37 66.647 1.40216\n36 0 1 4 66.991 1.39580\n12 2 2 3 67.085 1.39407\n6 1 3 3 67.085 1.39407\n26 1 2 2 67.308 1.38999\n7 1 3 2 67.436 1.38766\n8 1 3 17 67.809 1.38094\n22 0 3 17 67.809 1.38094\n32 0 2 23 68.173 1.37445\n38 0 0 23 68.173 1.37445\n9 1 3 15 68.297 1.37226\n14 2 2 30 68.557 1.36769\n10 1 3 17 68.805 1.36336\n27 1 2 17 68.805 1.36336\n37 0 1 11 68.888 1.36192\n34 1 1 11 68.888 1.36192\n11 1 3 3 69.365 1.35371\n12 1 3 1 69.907 1.34454\n33 0 2 1 69.907 1.34454\n28 1 2 3 70.154 1.34041\n16 2 2 3 70.154 1.34041\n13 1 3 1 70.637 1.33242\n38 0 1 2 70.941 1.32746\n29 1 2 13 71.697 1.31531\n34 0 2 13 71.697 1.31531\n18 2 2 55 71.944 1.31139\n15 1 3 46 72.109 1.30880\n40 0 0 18 72.272 1.30625\n36 1 1 44 72.582 1.30143\n39 0 1 116 72.918 1.29626\n16 1 3 116 72.918 1.29626\n35 0 2 14 73.475 1.28781\n17 1 3 10 73.776 1.28329\n20 2 2 5 73.925 1.28108\n27 0 3 1 74.264 1.27606\n2 0 4 8 74.498 1.27264\n1 0 4 8 74.498 1.27264\n3 0 4 16 74.682 1.26995\n18 1 3 16 74.682 1.26995\n31 1 2 17 74.818 1.26798\n4 0 4 16 74.885 1.26701\n5 0 4 9 75.117 1.26367\n40 0 1 9 75.117 1.26367\n6 0 4 26 75.400 1.25963\n36 0 2 26 75.400 1.25963\n7 0 4 27 75.735 1.25489\n28 0 3 27 75.735 1.25489\n8 0 4 7 76.120 1.24950\n22 2 2 7 76.120 1.24950\n32 1 2 5 76.437 1.24510\n38 1 1 5 76.437 1.24510\n9 0 4 5 76.514 1.24405\n42 0 0 5 76.514 1.24405\n20 1 3 8 76.636 1.24237\n29 0 3 10 77.084 1.23626\n41 0 1 10 77.084 1.23626\n11 0 4 14 77.578 1.22962\n12 0 4 29 78.164 1.22186\n33 1 2 29 78.164 1.22186\n24 2 2 18 78.439 1.21826\n13 0 4 16 78.799 1.21360\n22 1 3 16 78.799 1.21360\n38 0 2 29 79.092 1.20984\n34 1 2 5 79.798 1.20090\n40 1 1 35 80.375 1.19372\n39 0 2 10 80.971 1.18643\n26 2 2 10 80.971 1.18643", "visible": false}, {"label": "α-Fe2O3", "name": "α-Fe2O3 PDF 01-071-5088.txt", "color": "#b91c1c", "text": "l k h I 2θ d\n2 1 0 326 24.143 3.68332\n4 0 1 999 33.165 2.69903\n0 1 1 728 35.608 2.51925\n6 0 0 20 39.312 2.29000\n3 1 1 196 40.849 2.20736\n2 0 2 19 43.486 2.07940\n4 2 0 347 49.450 1.84166\n6 1 1 421 54.076 1.69454\n1 1 2 5 56.123 1.63748\n2 2 1 24 57.415 1.60367\n8 1 0 77 57.631 1.59816\n4 1 2 266 62.411 1.48675\n0 0 3 261 63.957 1.45449\n5 2 1 2 66.012 1.41411\n8 0 2 24 69.611 1.34952\n10 0 1 90 71.997 1.31056\n9 1 1 23 72.311 1.30564\n0 2 2 56 75.401 1.25962\n6 3 0 20 77.717 1.22777\n3 2 2 9 78.727 1.21453\n1 3 1 1 79.430 1.20554\n2 1 3 15 80.527 1.19186\n8 2 1 35 80.712 1.18959\n10 2 0 44 82.987 1.16265\n12 0 0 3 84.560 1.14500\n4 3 1 65 84.885 1.14144\n6 2 2 61 88.524 1.10368\n2 4 0 6 91.283 1.07737\n10 1 2 63 93.721 1.05565\n12 1 1 4 95.288 1.04239\n4 0 4 21 95.614 1.03970\n7 3 1 1 96.793 1.03015\n1 2 3 1 100.983 0.99840\n11 2 1 1 101.356 0.99574\n8 1 3 22 102.273 0.98928\n9 2 2 4 104.899 0.97160\n4 2 3 51 106.548 0.96107\n14 1 0 26 107.121 0.95751\n0 1 4 41 107.993 0.95219\n5 3 2 1 109.962 0.94058\n3 4 1 5 111.437 0.93225\n8 4 0 11 113.551 0.92083\n10 3 1 50 116.032 0.90816\n12 0 3 3 117.784 0.89968\n14 0 2 25 118.775 0.89504\n13 1 2 1 119.910 0.88987\n6 4 1 58 122.357 0.87921\n11 1 3 1 124.811 0.86917\n8 3 2 9 125.912 0.86487\n15 1 1 3 126.966 0.86086\n15 1 1 3 126.966 0.86086\n10 0 4 25 128.745 0.85435\n12 2 2 3 130.778 0.84727\n4 5 0 21 131.207 0.84582\n14 2 1 47 131.941 0.84339\n0 3 3 33 133.068 0.83975\n3 3 3 1 137.684 0.82598\n1 4 2 1 138.719 0.82314\n2 2 4 2 140.384 0.81874\n10 2 3 31 144.375 0.80909\n9 4 1 6 144.892 0.80792\n4 4 2 32 147.755 0.80184\n16 2 0 6 149.153 0.79908", "visible": false}, {"label": "QS-type BaSn0.9Fe5.47O11", "name": "QS-type BaSn0.9Fe5.47O11.txt", "color": "#be123c", "text": "d 2θ I fix h k l\n 14.30000 6.176 1 0 0 1\n 7.14000 12.387 1 0 0 2\n 5.12000 17.306 3 1 0 0\n 4.83000 18.354 8 1 0 1\n 4.16000 21.342 2 1 0 2\n 3.57200 24.907 6 0 0 4\n 3.48900 25.510 10 1 0 3\n 2.96000 30.168 65 1 1 0\n 2.93200 30.463 100 1 0 4\n 2.90100 30.797 16 1 1 1\n 2.85800 31.272 6 0 0 5\n 2.73600 32.705 9 1 1 2\n 2.56400 34.967 9 2 0 0\n 2.51600 35.656 70 1 1 3\n 2.49700 35.936 4 1 0 5\n 2.41400 37.217 8 2 0 2\n 2.38100 37.752 1 0 0 6\n 2.27900 39.510 1 1 1 4\n 2.25800 39.893 31 2 0 3\n 2.15900 41.806 2 1 0 6\n 2.08400 43.385 10 2 0 4\n 2.05400 44.052 1 1 1 5\n 2.04000 44.370 1 0 0 7\n 1.93700 46.866 1 2 1 0\n 1.92000 47.306 1 2 1 1\n 1.90800 47.622 20 2 0 5\n 1.89600 47.942 4 1 0 7\n 1.87000 48.652 1 2 1 2\n 1.85500 49.071 1 1 1 6\n 1.79500 50.825 5 2 1 3\n 1.78600 51.100 3 0 0 8\n 1.74500 52.391 2 2 0 6\n 1.70900 53.581 3 3 0 0\n 1.70400 53.751 61 2 1 4\n 1.70400 53.751 61 3 0 1\n 1.68600 54.372 9 1 0 8\n 1.66200 55.223 2 3 0 2\n 1.60900 57.207 14 3 0 3\n 1.60400 57.402 14 2 1 5\n 1.59700 57.677 31 2 0 7\n 1.54200 59.940 1 3 0 4\n 1.52900 60.502 3 1 1 8\n 1.51600 61.076 2 1 0 9\n 1.50300 61.662 2 2 1 6\n 1.48100 62.681 35 2 2 0\n 1.46700 63.348 35 3 0 5\n 1.46700 63.348 35 2 0 8\n 1.41500 65.965 1 3 1 1\n 1.41500 65.965 1 2 2 3\n 1.40500 66.495 3 2 1 7\n 1.39900 66.817 2 1 1 9", "visible": false}, {"label": "BaCO3", "name": "BaCO3 PDF 00-045-1471.txt", "color": "#64748b", "text": "l k h I 2θ d\n1 1 0 8 19.438 4.56294\n2 0 0 4 19.927 4.45206\n1 1 1 100 23.891 3.72159\n2 0 1 50 24.297 3.66031\n0 0 2 20 27.713 3.21640\n1 0 2 6 29.504 3.02510\n2 1 1 2 29.610 3.01451\n0 1 2 4 32.511 2.75184\n3 0 1 1 33.218 2.69487\n0 2 0 18 33.703 2.65719\n1 1 2 30 34.075 2.62903\n2 0 2 16 34.366 2.60743\n3 1 0 40 34.587 2.59127\n1 2 1 1 37.965 2.36812\n2 2 0 12 39.460 2.28177\n4 0 0 4 40.491 2.22602\n2 2 1 50 41.977 2.15059\n4 0 1 20 42.961 2.10358\n0 2 2 18 44.171 2.04872\n3 1 2 40 44.882 2.01791\n4 1 1 1 46.398 1.95544\n1 1 3 30 46.769 1.94079\n2 0 3 14 46.995 1.93198\n3 2 1 1 48.039 1.89241\n2 2 2 6 48.900 1.86108\n4 0 2 3 49.773 1.83046\n2 1 3 1 50.190 1.81623\n1 3 0 3 52.630 1.73762\n5 0 1 1 53.328 1.71651\n4 2 0 3 53.669 1.70641\n5 1 0 2 54.287 1.68844\n1 3 1 12 54.674 1.67740\n4 2 1 14 55.689 1.64920\n5 1 1 12 56.284 1.63317\n0 0 4 3 57.237 1.60822\n2 3 1 1 57.762 1.59485\n1 0 4 1 58.250 1.58264\n2 2 3 6 59.069 1.56264\n4 0 3 2 59.839 1.54436\n1 3 2 3 60.514 1.52874\n3 3 0 7 60.846 1.52119\n1 1 4 5 61.040 1.51682\n2 0 4 2 61.228 1.51261\n4 2 2 3 61.461 1.50743\n5 1 2 3 62.025 1.49507\n6 0 0 3 62.542 1.48395\n3 3 2 12 68.122 1.37535\n3 1 4 10 68.627 1.36646\n6 0 2 14 69.735 1.34743\n4 2 3 7 70.465 1.33525\n0 4 0 4 70.868 1.32864\n5 1 3 8 70.993 1.32661\n2 2 4 2 71.745 1.31454\n4 0 4 1 72.446 1.30354\n6 2 0 6 72.960 1.29562\n2 4 0 1 74.457 1.27323\n1 0 5 1 74.457 1.27323\n5 3 0 1 75.658 1.25598\n2 4 1 5 76.161 1.24893\n1 1 5 4 76.937 1.23826\n2 0 5 3 77.098 1.23607\n5 3 1 5 77.351 1.23266\n0 4 2 2 77.698 1.22802\n7 1 1 4 78.712 1.21472\n6 2 2 4 79.725 1.20181\n2 4 2 2 81.188 1.18381\n1 3 4 1 81.483 1.18027\n5 1 4 1 82.821 1.16456\n7 1 2 1 83.697 1.15459\n1 2 5 1 84.270 1.14819\n4 4 0 1 84.935 1.14090\n4 4 1 4 86.585 1.12334\n2 2 5 4 86.841 1.12068\n4 0 5 2 87.507 1.11386\n3 3 4 4 88.377 1.10513\n8 0 1 2 89.242 1.09665\n2 4 3 3 89.438 1.09475\n6 0 4 2 89.868 1.09063\n5 3 3 2 90.597 1.08374\n4 4 2 1 91.509 1.07530\n7 1 3 3 91.906 1.07169\n1 5 0 1 93.754 1.05537\n8 0 2 1 94.200 1.05154", "visible": false}, {"label": "BaFe2O4", "name": "BaFe2O4 PDF 00-027-1030.txt", "color": "#0ea5e9", "text": "l k h I 2θ d\n0 0 2 20 18.866 4.70000\n1 0 2 10 21.446 4.14000\n1 1 2 12 27.081 3.29000\n2 0 2 100 27.947 3.19000\n1 0 3 6 30.357 2.94200\n3 0 1 5 32.268 2.77200\n0 2 2 99 33.040 2.70900\n1 2 2 6 34.660 2.58600\n3 0 2 6 36.404 2.46600\n0 0 4 5 38.320 2.34700\n2 2 2 10 39.152 2.29900\n4 0 0 17 41.464 2.17600\n3 0 3 5 42.465 2.12700\n1 2 3 1 43.233 2.09100\n2 0 4 45 43.782 2.06600\n1 1 4 4 45.450 1.99400\n4 0 2 16 45.961 1.97300\n1 0 5 4 49.613 1.83600\n3 0 4 6 49.903 1.82600\n0 2 4 2 51.409 1.77600\n3 2 3 7 52.913 1.72900\n4 2 2 20 53.991 1.69700\n2 2 4 40 55.918 1.64300\n5 0 2 1 56.291 1.63300\n4 0 4 10 57.677 1.59700\n0 0 6 20 58.930 1.56600\n0 4 4 13 69.290 1.35500\n", "visible": false}, {"label": "CaCO3", "name": "CaCO3 PDF 00-005-0586.txt", "color": "#84cc16", "text": "l k h I 2θ d\n2 1 0 12 23.022 3.86000\n4 0 1 100 29.406 3.03500\n6 0 0 3 31.418 2.84500\n0 1 1 14 35.966 2.49500\n3 1 1 18 39.402 2.28500\n2 0 2 18 43.146 2.09500\n4 2 0 5 47.124 1.92700\n8 1 0 17 47.490 1.91300\n6 1 1 17 48.514 1.87500\n1 1 2 4 56.555 1.62600\n2 2 1 8 57.402 1.60400\n10 0 1 2 58.075 1.58700\n4 1 2 5 60.678 1.52500\n8 0 2 4 60.987 1.51800\n9 1 1 3 61.345 1.51000\n5 2 1 2 63.060 1.47300\n0 0 3 5 64.678 1.44000\n12 0 0 3 65.599 1.42200\n7 1 2 1 69.231 1.35600\n10 2 0 2 70.238 1.33900\n8 2 1 2 72.870 1.29700\n6 0 3 1 73.729 1.28400\n0 2 2 1 76.300 1.24700\n12 1 1 2 77.177 1.23500\n2 1 3 1 80.933 1.18690\n10 1 2 3 81.547 1.17950\n14 1 0 1 82.113 1.17280\n4 3 1 3 83.767 1.15380\n6 2 2 1 84.788 1.14250\n11 2 1 1 86.483 1.12440\n14 0 2 1 93.072 1.06130\n4 0 4 3 94.701 1.04730\n8 1 3 4 95.011 1.04470\n16 0 1 2 96.165 1.03520\n13 1 2 1 97.647 1.02340\n12 0 3 2 99.161 1.01180\n1 2 3 1 102.242 0.98950\n2 3 2 1 102.952 0.98460\n10 3 1 1 103.899 0.97820\n14 2 1 3 104.124 0.97670\n4 2 3 2 105.846 0.96550\n8 4 0 4 106.145 0.96360\n16 2 0 1 107.333 0.95620\n0 1 4 2 109.561 0.94290\n12 2 2 2 110.484 0.93760\n", "visible": false}];
+const $ = id => document.getElementById(id);
 
-function cleanName(name){return String(name||'sample').replace(/\.[^.]+$/,'').replace(/_exported$/i,'')}
-function splitNums(line){return [...line.matchAll(/[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?/g)].map(m=>Number(m[0]))}
-function normHeader(line){return line.toLowerCase().replaceAll('2θ','2theta').replaceAll('2ﾎｸ','2theta').split(/[\s,]+/).filter(Boolean)}
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function num(v, fallback=0){ const x = Number(v); return Number.isFinite(x) ? x : fallback; }
+function downloadText(filename, text, type='text/plain'){
+  const blob = new Blob([text], {type});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+function cleanName(name){ return (name || 'sample').replace(/\.[^.]+$/, '').replace(/[_-]+exported$/i,''); }
 
-function parseMeasured(text,name){
-  const points=[];
+let uidCounter = 1;
+function uniqueId(prefix='id'){
+  return `${prefix}_${Date.now().toString(36)}_${(uidCounter++).toString(36)}_${Math.random().toString(36).slice(2,7)}`;
+}
+function simplifyPhaseLabel(name){
+  const s = String(name || '').replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
+  const lower = s.toLowerCase();
+  if(/\bm[- ]?type\b/.test(lower)) return 'M-type';
+  if(/\bz[- ]?type\b/.test(lower)) return 'Z-type';
+  if(/\by[- ]?type\b/.test(lower)) return 'Y-type';
+  if(/\bx[- ]?type\b/.test(lower)) return 'X-type';
+  if(/\bw[- ]?type\b/.test(lower)) return 'W-type';
+  if(/\bqs[- ]?type\b/.test(lower) || lower.includes('basn0.9fe5.47o11')) return 'QS-type';
+  if(lower.includes('cuo')) return 'CuO';
+  if(lower.includes('feo') && !lower.includes('fe2o4') && !lower.includes('fe2o3')) return 'FeO';
+  if(lower.includes('spinel') || lower.includes('cu') && lower.includes('fe2') && lower.includes('o4')) return 'spinel CuFe2O4';
+  if(lower.includes('αfe2o3') || lower.includes('alphafe2o3') || lower.includes('fe2o3')) return 'α-Fe2O3';
+  if(lower.includes('baco3')) return 'BaCO3';
+  if(lower.includes('bafe2o4')) return 'BaFe2O4';
+  if(lower.includes('caco3')) return 'CaCO3';
+  return s.replace(/\s*PDF\s*[-0-9A-Za-z() ]*$/,'').trim() || s;
+}
+function refId(r){
+  if(!r.id) r.id = uniqueId('ref');
+  return r.id;
+}
+function phaseLabel(r){ return (r.displayName || simplifyPhaseLabel(r.name || r.rawName || '') || r.name || '').trim(); }
+function sampleDataName(tr){ return (tr.displayName || tr.comment || tr.name || tr.rawName || '').trim(); }
+function sampleLabel(tr){ return sampleDataName(tr); }
+function ensureRuntimeState(){
+  state.refs.forEach(r => { refId(r); if(!r.displayName) r.displayName = simplifyPhaseLabel(r.displayName || r.name || r.rawName); if(!r.marker) r.marker = suggestMarker(r.displayName || r.name); });
+  state.measured.forEach((m, i) => {
+    if(!m.id) m.id = uniqueId('meas');
+    const label = m.displayName || m.comment || m.name || cleanName(m.rawName) || `sample ${i+1}`;
+    m.displayName = label;
+    m.name = label;
+    m.comment = label;
+    if(!Array.isArray(m.activeRefs)) m.activeRefs = state.refs.filter(r => r.visible).map(refId);
+  });
+}
+function defaultActiveRefIds(){ return state.refs.filter(r => r.visible).map(refId); }
+function traceRefIds(trace){ return new Set(Array.isArray(trace.activeRefs) ? trace.activeRefs : []); }
+function refsForTrace(trace){
+  const ids = traceRefIds(trace);
+  const v = $('refSelect')?.value || 'all';
+  return state.refs.filter(r => ids.has(refId(r)) && (v === 'all' || r.name === v || refId(r) === v));
+}
+function reorderMeasured(from, to){
+  if(to < 0 || to >= state.measured.length || from < 0 || from >= state.measured.length) return;
+  recordUndoPoint();
+  const [item] = state.measured.splice(from, 1);
+  state.measured.splice(to, 0, item);
+  render();
+}
+function deleteMeasured(index){
+  if(index < 0 || index >= state.measured.length) return;
+  recordUndoPoint();
+  state.measured.splice(index, 1);
+  render();
+}
+function suggestMarker(name){
+  const s = String(name || '').toLowerCase();
+  if(s.includes('m-type') || s.includes('m type')) return 'circle';
+  if(s.includes('z-type') || s.includes('z type')) return 'triangle_down';
+  if(s.includes('qs')) return 'diamond';
+  if(s.includes('spinel')) return 'square';
+  if(s.includes('feo') || s.includes('fe2o3')) return 'triangle_up';
+  return 'triangle_down';
+}
+async function readFile(file){
+  const buf = await file.arrayBuffer();
+  const utf = new TextDecoder('utf-8').decode(buf);
+  const bad = (utf.match(/�/g) || []).length;
+  if(bad > 2){
+    try { return new TextDecoder('shift_jis').decode(buf); } catch(_e){}
+  }
+  return utf;
+}
+
+function parseMeasured(text, name='sample'){
+  const pts = [];
   for(const raw of text.split(/\r?\n/)){
-    const line=raw.trim(); if(!line||line.startsWith('#')||line.startsWith("'")) continue;
-    const v=splitNums(line); if(v.length>=2&&v[0]>-20&&v[0]<200) points.push({x:v[0],y:v[1]});
+    const line = raw.trim();
+    if(!line || line.startsWith('#')) continue;
+    const vals = line.replace(/,/g,' ').split(/\s+/).map(Number).filter(Number.isFinite);
+    if(vals.length >= 2){
+      const x = vals[0], y = vals[1];
+      if(x > -100 && x < 200 && Number.isFinite(y)) pts.push({x,y});
+    }
   }
-  points.sort((a,b)=>a.x-b.x);
-  return {name:cleanName(name),rawName:name,points,norm:[]};
+  pts.sort((a,b)=>a.x-b.x);
+  const nm = cleanName(name);
+  return {id: uniqueId('meas'), name: nm, rawName: name, displayName: nm, comment: nm, visible: true, points: pts, norm: [], activeRefs: defaultActiveRefIds()};
 }
 
-function parseReference(text,name,color,marker){
-  let header=null; const peaks=[];
+function parseReference(text, name='reference', color='#e11d48', opts={}){
+  const peaks = [];
+  let header = null;
   for(const raw of text.split(/\r?\n/)){
-    const line=raw.trim(); if(!line||line.startsWith('#')) continue;
-    if(/[a-zA-Zθﾎ]/.test(line)&&!/^[-+\d.]/.test(line)){header=normHeader(line);continue}
-    const v=splitNums(line); if(v.length<2) continue;
-    let p=parseRefValues(v,header); if(p) peaks.push(p);
+    const line = raw.trim();
+    if(!line || line.startsWith('#') || line.startsWith('//') || line.startsWith(';')) continue;
+    if(/[a-zA-ZθΘａ-ｚＡ-Ｚ]/.test(line) && !/^[-+\d.]/.test(line)){
+      header = line.toLowerCase()
+        .replaceAll('2θ','2theta')
+        .replaceAll('2Θ','2theta')
+        .replaceAll('2ﾎｸ','2theta')
+        .replace(/[(),]/g,' ')
+        .split(/\s+/).filter(Boolean);
+      continue;
+    }
+    const vals = line.replace(/,/g,' ').match(/[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?/g)?.map(Number) || [];
+    const peak = parseRefValues(vals, header, name);
+    if(peak) peaks.push(peak);
   }
-  const maxI=Math.max(1,...peaks.map(p=>p.intensity));
-  peaks.forEach(p=>{p.iNorm=p.intensity/maxI*100;p.phase=cleanName(name);p.hidden=false});
-  return {name:cleanName(name),rawName:name,label:suggestLabel(name),color,marker,peaks};
+  const maxI = Math.max(1, ...peaks.map(p => p.intensity));
+  peaks.forEach(p => p.iNorm = p.intensity / maxI * 100);
+  return {name: cleanName(name), rawName: name, displayName: opts.displayName ? simplifyPhaseLabel(opts.displayName) : '', visible: opts.visible ?? true, builtin: Boolean(opts.builtin), color, marker: opts.marker || suggestMarker(opts.displayName || name), peaks};
 }
 
-function parseRefValues(v,h){
-  if(h&&v.length>=h.length){
-    const idx=Object.fromEntries(h.map((x,i)=>[x,i]));
-    const ai=idx['2theta'], ii=idx['i']??idx['intensity'], hi=idx['h'], ki=idx['k'], li=idx['l'], di=idx['d'];
-    if(ai!=null&&ii!=null) return {angle:v[ai],intensity:v[ii],h:hi!=null?v[hi]:null,k:ki!=null?v[ki]:null,l:li!=null?v[li]:null,d:di!=null?v[di]:null};
+function parseRefValues(vals, header, name){
+  if(vals.length < 2) return null;
+  if(header && vals.length >= header.length){
+    const idx = Object.fromEntries(header.map((h,i)=>[h,i]));
+    const angleIdx = firstIndex(idx, ['2theta','2th','twotheta','angle']);
+    const intIdx = firstIndex(idx, ['i','intensity','inten','relativeintensity']);
+    const dIdx = firstIndex(idx, ['d','dspacing','d_spacing']);
+    const hIdx = idx.h, kIdx = idx.k, lIdx = idx.l;
+    if(angleIdx != null && intIdx != null){
+      return makeRefPeak(vals[dIdx], vals[angleIdx], vals[intIdx], hIdx!=null?vals[hIdx]:null, kIdx!=null?vals[kIdx]:null, lIdx!=null?vals[lIdx]:null, name);
+    }
   }
-  if(v.length>=7) return {d:v[0],angle:v[1],intensity:v[2],h:v[v.length-3],k:v[v.length-2],l:v[v.length-1]};
-  if(v.length>=6) return {d:v[5],angle:v[4],intensity:v[3],h:v[2],k:v[1],l:v[0]}; // l k h I 2theta d
-  if(v.length>=5) return {angle:v[0],intensity:v[1],h:v[2],k:v[3],l:v[4]};
-  return {angle:v[0],intensity:v[1],h:null,k:null,l:null,d:null};
+  const candidates = [];
+  if(vals.length >= 7) candidates.push({d:vals[0], angle:vals[1], intensity:vals[2], h:vals[4], k:vals[5], l:vals[6], score:braggScore(vals[0], vals[1]) - 0.20});
+  if(vals.length >= 6) candidates.push({d:vals[0], angle:vals[1], intensity:vals[2], h:vals[3], k:vals[4], l:vals[5], score:braggScore(vals[0], vals[1])});
+  if(vals.length >= 6) candidates.push({d:vals[5], angle:vals[4], intensity:vals[3], h:vals[0], k:vals[1], l:vals[2], score:braggScore(vals[5], vals[4]) + 0.05});
+  if(vals.length >= 6) candidates.push({d:vals[5], angle:vals[4], intensity:vals[3], h:vals[2], k:vals[1], l:vals[0], score:braggScore(vals[5], vals[4]) + 0.10});
+  if(vals.length >= 5) candidates.push({d:null, angle:vals[0], intensity:vals[1], h:vals[2], k:vals[3], l:vals[4], score:isAngle(vals[0]) ? 0.55 : 9});
+  if(vals.length >= 2) candidates.push({d:null, angle:vals[0], intensity:vals[1], h:null, k:null, l:null, score:isAngle(vals[0]) ? 0.9 : 9});
+  candidates.sort((a,b)=>a.score-b.score);
+  const c = candidates.find(c => isAngle(c.angle) && Number.isFinite(c.intensity) && c.intensity >= 0);
+  return c ? makeRefPeak(c.d, c.angle, c.intensity, c.h, c.k, c.l, name) : null;
 }
 
-function suggestLabel(name){
-  const s=name.toLowerCase();
-  if(s.includes('m-type')||s.includes('bafe12o19')) return 'M-type';
-  if(s.includes('z-type')) return 'Z-type';
-  if(s.includes('y-type')) return 'Y-type';
-  if(s.includes('spinel')||s.includes('fe2o4')) return 'spinel';
-  return cleanName(name);
+function firstIndex(idx, names){ for(const n of names){ if(idx[n] != null) return idx[n]; } return null; }
+function isAngle(v){ return Number.isFinite(v) && v > 0 && v < 180; }
+function braggScore(d, angle){
+  if(!Number.isFinite(d) || !Number.isFinite(angle) || d <= 0 || !isAngle(angle)) return 9;
+  const lambda = 1.5406;
+  const theta = angle * Math.PI / 360;
+  const dCalc = lambda / (2 * Math.sin(theta));
+  return Math.abs(dCalc - d) / Math.max(d, 1e-9);
+}
+function makeRefPeak(d, angle, intensity, h, k, l, name){
+  if(!isAngle(angle) || !Number.isFinite(intensity) || intensity < 0) return null;
+  const cleanInt = v => Number.isFinite(v) ? Math.round(v) : null;
+  return {d:Number.isFinite(d)?d:null, angle, intensity, h:cleanInt(h), k:cleanInt(k), l:cleanInt(l), phase: cleanName(name)};
 }
 
-function normalizeTrace(t){
-  const xMin=n('xMin',20),xMax=n('xMax',70);
-  const pts=t.points.filter(p=>p.x>=xMin&&p.x<=xMax);
-  const ys=(pts.length?pts:t.points).map(p=>p.y);
-  const min=Math.min(...ys), max=Math.max(...ys), span=Math.max(1e-12,max-min);
-  t.norm=t.points.map(p=>({x:p.x,y:$('normalize').checked?(p.y-min)/span*100:p.y}));
+function normalizeTrace(trace){
+  const xMin = num($('xMin').value,20), xMax = num($('xMax').value,70);
+  const inRange = trace.points.filter(p => p.x >= xMin && p.x <= xMax);
+  const target = $('baseline').checked && inRange.length ? inRange : trace.points;
+  const ys = target.map(p => p.y);
+  const minY = ys.length ? Math.min(...ys) : 0;
+  const maxY = ys.length ? Math.max(...ys) : 1;
+  const span = Math.max(1e-12, maxY - minY);
+  trace.norm = trace.points.map(p => ({x:p.x, y: $('normalize').checked ? (p.y - minY) / span * 100 : p.y}));
 }
 
-function movingAverage(arr,w=5){
-  const o=[],h=Math.floor(w/2);
-  for(let i=0;i<arr.length;i++){let s=0,c=0;for(let j=Math.max(0,i-h);j<=Math.min(arr.length-1,i+h);j++){s+=arr[j].y;c++}o.push({x:arr[i].x,y:s/c})}
-  return o;
+function interpY(points, x){
+  if(!points.length) return 0;
+  if(x <= points[0].x) return points[0].y;
+  if(x >= points[points.length-1].x) return points[points.length-1].y;
+  let lo = 0, hi = points.length - 1;
+  while(hi - lo > 1){ const mid = (lo + hi) >> 1; if(points[mid].x < x) lo = mid; else hi = mid; }
+  const a = points[lo], b = points[hi];
+  const t = (x - a.x) / (b.x - a.x || 1);
+  return a.y + (b.y - a.y) * t;
 }
-function detectPeaks(points,minI){
-  const xMin=n('xMin',20),xMax=n('xMax',70),arr=movingAverage(points.filter(p=>p.x>=xMin&&p.x<=xMax),5),cand=[];
-  for(let i=2;i<arr.length-2;i++){const y=arr[i].y;if(y<minI)continue;if(y>arr[i-1].y&&y>=arr[i+1].y&&y>arr[i-2].y&&y>=arr[i+2].y)cand.push(arr[i])}
-  cand.sort((a,b)=>b.y-a.y); const out=[];
-  for(const c of cand) if(!out.some(p=>Math.abs(p.x-c.x)<0.14)) out.push(c);
-  return out.sort((a,b)=>a.x-b.x);
-}
-function nearestY(trace,x){
-  let best=null,d=Infinity; for(const p of trace.norm){const q=Math.abs(p.x-x); if(q<d){d=q;best=p}}
-  return best&&d<=Math.max(n('tol',.2),.12)?best.y:null;
-}
-function visibleRefs(){return state.refs.flatMap(r=>r.peaks.filter(p=>!p.hidden&&p.iNorm>=n('minRef',8)).map(p=>({...p,ref:r})))}
-function hkl(p){return p.h==null||p.k==null||p.l==null?'':`${p.h}${p.k}${p.l}`.replace(/\.0/g,'')}
-function nearestRef(x,refs,tol){let best=null,d=Infinity;for(const p of refs){const q=Math.abs(p.angle-x);if(q<d){d=q;best=p}}return best&&d<=tol?{peak:best,delta:x-best.angle}:null}
 
-function rankPhases(peaks){
-  const tol=n('tol',.2), minRef=n('minRef',8), rows=[];
-  for(const r of state.refs){
-    const exp=r.peaks.filter(p=>!p.hidden&&p.iNorm>=minRef);
-    if(!exp.length) continue;
-    const main=r.peaks.reduce((a,b)=>a.iNorm>b.iNorm?a:b);
-    let matched=0, w=0, wt=0;
-    for(const p of exp){wt+=p.iNorm; const ok=peaks.some(pk=>Math.abs(pk.x-p.angle)<=tol); if(ok){matched++;w+=p.iNorm}}
-    const mainFound=peaks.some(pk=>Math.abs(pk.x-main.angle)<=tol);
-    let score=wt?100*w/wt:0; if(!mainFound) score*=.25;
-    score-=8*exp.filter(p=>p.iNorm>=50&&!peaks.some(pk=>Math.abs(pk.x-p.angle)<=tol)).length;
-    rows.push({label:r.label,score:Math.max(0,score),main:main.angle,mainFound,matched,total:exp.length});
+function movingAverage(arr, win=5){
+  const out = new Array(arr.length);
+  const half = Math.floor(win/2);
+  for(let i=0;i<arr.length;i++){
+    let s=0,c=0;
+    for(let j=Math.max(0,i-half); j<=Math.min(arr.length-1,i+half); j++){
+      s += arr[j].y; c++;
+    }
+    out[i] = {x:arr[i].x, y:s/c};
   }
-  return rows.sort((a,b)=>b.score-a.score);
+  return out;
 }
 
-function renderRefList(){
-  const box=$('refList'); box.innerHTML='';
-  state.refs.forEach((r,i)=>{const d=document.createElement('div');d.className='item'+(i===state.selectedRef?' active':'');d.textContent=`${r.label} [${r.name}]`;d.onclick=()=>selectRef(i);box.appendChild(d)});
-}
-function selectRef(i){state.selectedRef=i;const r=state.refs[i];$('refLabel').value=r.label;$('refColor').value=r.color;$('refMarker').value=r.marker;renderRefList()}
-
-function buildSvg(){
-  state.measured.forEach(normalizeTrace);
-  const xMin=n('xMin',20),xMax=n('xMax',70),offset=n('offset',120),W=n('svgW',1200),H=n('svgH',900);
-  const m={l:115,r:50,t:100,b:95}, pw=W-m.l-m.r, ph=H-m.t-m.b, yMin=-12, yMax=Math.max(112+offset*(state.measured.length-1),120);
-  const sx=x=>m.l+(x-xMin)/(xMax-xMin)*pw, sy=y=>m.t+ph-(y-yMin)/(yMax-yMin)*ph;
-  const parts=[`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`,
-    `<rect width="100%" height="100%" fill="white"/>`,
-    `<style>text{font-family:'Times New Roman','Yu Mincho',serif}.axis{fill:none;stroke:#000;stroke-width:2}.trace{fill:none;stroke:#000;stroke-width:1.25}.tick{stroke:#000;stroke-width:1.7}</style>`,
-    `<rect class="axis" x="${m.l}" y="${m.t}" width="${pw}" height="${ph}"/>`];
-  state.refs.slice(0,8).forEach((r,i)=>{const x=m.l+45+(i%4)*220,y=38+Math.floor(i/4)*34;parts.push(markerSvg(x,y,r.marker,r.color,12));parts.push(`<text x="${x+28}" y="${y+8}" font-size="24">${esc(r.label)}</text>`)});
-  for(let x=Math.ceil(xMin/10)*10;x<=xMax+1e-9;x+=10){const X=sx(x);parts.push(`<line class="tick" x1="${X}" y1="${m.t}" x2="${X}" y2="${m.t+22}"/>`);parts.push(`<line class="tick" x1="${X}" y1="${m.t+ph}" x2="${X}" y2="${m.t+ph-22}"/>`);parts.push(`<text x="${X}" y="${m.t+ph+50}" font-size="34" text-anchor="middle">${x}</text>`)}
-  parts.push(`<text x="${m.l+pw/2}" y="${H-24}" font-size="34" text-anchor="middle">2θ (deg.)　Cu-Kα</text>`);
-  parts.push(`<text transform="translate(45 ${m.t+ph/2}) rotate(-90)" font-size="28" text-anchor="middle">Intensity (arb. units)</text>`);
-  state.measured.forEach((tr,si)=>{const base=offset*si, pts=tr.norm.filter(p=>p.x>=xMin&&p.x<=xMax); if(pts.length){parts.push(`<polyline class="trace" points="${pts.map(p=>`${sx(p.x).toFixed(2)},${sy(p.y+base).toFixed(2)}`).join(' ')}"/>`)} parts.push(`<text x="${m.l+pw-8}" y="${sy(base+94)}" font-size="16" text-anchor="end">${esc(tr.name)}</text>`)});
-  const refs=visibleRefs();
-  for(const p of refs){state.measured.forEach((tr,si)=>{const yy=nearestY(tr,p.angle); if(yy==null)return; parts.push(markerSvg(sx(p.angle),sy(yy+offset*si)-18,p.ref.marker,p.ref.color,10))})}
-  parts.push('</svg>'); return parts.join('\n');
+function detectPeaks(points, threshold=7, minSep=0.18){
+  const xMin = num($('xMin').value,20), xMax = num($('xMax').value,70);
+  const arr = movingAverage(points.filter(p => p.x >= xMin && p.x <= xMax), 5);
+  const candidates = [];
+  for(let i=2;i<arr.length-2;i++){
+    const y = arr[i].y;
+    if(y < threshold) continue;
+    if(y > arr[i-1].y && y >= arr[i+1].y && y > arr[i-2].y && y >= arr[i+2].y){
+      const localMin = Math.min(arr[i-2].y, arr[i-1].y, arr[i+1].y, arr[i+2].y);
+      const prominence = y - localMin;
+      if(prominence >= 2.5) candidates.push({x: arr[i].x, y});
+    }
+  }
+  candidates.sort((a,b)=>b.y-a.y);
+  const selected = [];
+  for(const c of candidates){
+    if(!selected.some(p => Math.abs(p.x - c.x) < minSep)) selected.push(c);
+  }
+  return selected.sort((a,b)=>a.x-b.x);
 }
 
-function markerSvg(x,y,type,color,s){
-  if(type==='triangle_down')return`<polygon points="${x},${y+s} ${x-s},${y-s} ${x+s},${y-s}" fill="${color}" stroke="${color}"/>`;
-  if(type==='triangle_up')return`<polygon points="${x},${y-s} ${x-s},${y+s} ${x+s},${y+s}" fill="${color}" stroke="${color}"/>`;
-  if(type==='diamond')return`<polygon points="${x},${y-s} ${x-s},${y} ${x},${y+s} ${x+s},${y}" fill="${color}" stroke="${color}"/>`;
-  if(type==='square')return`<rect x="${x-s}" y="${y-s}" width="${2*s}" height="${2*s}" fill="${color}" stroke="${color}"/>`;
-  if(type==='cross')return`<g stroke="${color}" stroke-width="3"><line x1="${x-s}" y1="${y-s}" x2="${x+s}" y2="${y+s}"/><line x1="${x-s}" y1="${y+s}" x2="${x+s}" y2="${y-s}"/></g>`;
-  return`<circle cx="${x}" cy="${y}" r="${s}" fill="${color}" stroke="${color}"/>`;
+function hklText(p){
+  if(p.h == null || p.k == null || p.l == null) return '';
+  return `${p.h}${p.k}${p.l}`.replace(/\.0/g,'');
+}
+
+function orientationPass(p){
+  const mode = $('orientationMode').value;
+  const h = num(p.h, NaN), k = num(p.k, NaN), l = num(p.l, NaN);
+  if(mode === 'all') return true;
+  if(!Number.isFinite(h) || !Number.isFinite(k) || !Number.isFinite(l)) return false;
+  if(mode === 'h00') return h !== 0 && k === 0 && l === 0;
+  if(mode === '0k0') return h === 0 && k !== 0 && l === 0;
+  if(mode === '00l') return h === 0 && k === 0 && l !== 0;
+  if(mode === 'hk0') return h !== 0 && k !== 0 && l === 0;
+  if(mode === 'h0l') return h !== 0 && k === 0 && l !== 0;
+  if(mode === '0kl') return h === 0 && k !== 0 && l !== 0;
+  return true;
+}
+
+function visibleMeasured(){ return state.measured.filter(m => m.visible && m.points.length); }
+function selectedRefSets(){
+  ensureRuntimeState();
+  const minI = num($('refMinI').value, 0);
+  const used = new Set();
+  visibleMeasured().forEach(tr => refsForTrace(tr).forEach(r => used.add(refId(r))));
+  if(!used.size) state.refs.filter(r => r.visible).forEach(r => used.add(refId(r)));
+  return state.refs.filter(r => used.has(refId(r))).map(r => ({
+    ...r,
+    displayName: phaseLabel(r),
+    peaks: r.peaks.filter(p => p.iNorm >= minI && orientationPass(p))
+  })).filter(r => r.peaks.length);
+}
+function selectedRefSetsForTrace(trace){
+  ensureRuntimeState();
+  const minI = num($('refMinI').value, 0);
+  return refsForTrace(trace).map(r => ({
+    ...r,
+    displayName: phaseLabel(r),
+    peaks: r.peaks.filter(p => p.iNorm >= minI && orientationPass(p))
+  })).filter(r => r.peaks.length);
+}
+function selectedRefPeaksForTrace(trace){ return selectedRefSetsForTrace(trace).flatMap(r => r.peaks.map(p => ({...p, color: r.color, marker: r.marker || 'triangle_down', phaseLabel: phaseLabel(r)}))); }
+function selectedRefPeaks(){ return selectedRefSets().flatMap(r => r.peaks.map(p => ({...p, color: r.color, marker: r.marker || 'triangle_down', phaseLabel: phaseLabel(r)}))); }
+
+function nearestPeak(x, peaks, tol){
+  let best = null, dBest = Infinity;
+  for(const p of peaks){
+    const d = Math.abs(p.x - x);
+    if(d < dBest){ best = p; dBest = d; }
+  }
+  return best && dBest <= tol ? {...best, delta: best.x - x} : null;
+}
+
+function nearestRef(x, refs, tol){
+  let best = null, dBest = Infinity;
+  for(const r of refs){
+    const d = Math.abs(r.angle - x);
+    if(d < dBest){ best = r; dBest = d; }
+  }
+  return best && dBest <= tol ? {ref: best, delta: x - best.angle} : null;
+}
+
+function texturePass(p, mode){
+  const h = num(p.h, NaN), k = num(p.k, NaN), l = num(p.l, NaN);
+  if(mode === 'none' || mode === 'all') return false;
+  if(!Number.isFinite(h) || !Number.isFinite(k) || !Number.isFinite(l)) return false;
+  if(mode === 'h00') return h !== 0 && k === 0 && l === 0;
+  if(mode === '0k0') return h === 0 && k !== 0 && l === 0;
+  if(mode === '00l') return h === 0 && k === 0 && l !== 0;
+  if(mode === 'hk0') return h !== 0 && k !== 0 && l === 0;
+  if(mode === 'h0l') return h !== 0 && k === 0 && l !== 0;
+  if(mode === '0kl') return h === 0 && k !== 0 && l !== 0;
+  return false;
+}
+
+function scoringRefSets(){
+  ensureRuntimeState();
+  const v = $('refSelect')?.value || 'all';
+  const minI = num($('refMinI').value, 8);
+  return state.refs.filter(r => (v === 'all' || r.name === v || refId(r) === v)).map(r => ({
+    ...r,
+    displayName: phaseLabel(r),
+    peaks: r.peaks.filter(p => p.iNorm >= minI)
+  })).filter(r => r.peaks.length);
+}
+
+
+function localMaxNear(profile, angle, tol, minPeak){
+  let best = null;
+  const lo = angle - tol, hi = angle + tol;
+  for(const p of profile){
+    if(p.x < lo || p.x > hi) continue;
+    if(!best || p.y > best.y) best = p;
+  }
+  if(!best || best.y < minPeak) return null;
+  return {x: best.x, y: best.y, delta: best.x - angle};
+}
+
+function medianValue(values){
+  const xs = values.filter(Number.isFinite).sort((a,b) => a-b);
+  if(!xs.length) return 0;
+  const m = Math.floor(xs.length / 2);
+  return xs.length % 2 ? xs[m] : (xs[m-1] + xs[m]) / 2;
+}
+
+function observedMarkerSupport(profile, angle, tol, minPeak, prominence=1.0, allowShoulder=true){
+  const strict = localMaxNear(profile, angle, tol, minPeak);
+  if(strict) return {...strict, reason: 'local-max'};
+  if(!allowShoulder) return null;
+
+  const lo = angle - tol, hi = angle + tol;
+  const inner = profile.filter(p => p.x >= lo && p.x <= hi);
+  if(!inner.length) return null;
+  let best = inner[0];
+  for(const p of inner) if(p.y > best.y) best = p;
+  if(best.y < minPeak) return null;
+
+  const outerSpan = Math.max(tol * 3.0, tol + 0.18);
+  const guard = Math.max(tol * 1.15, tol + 0.03);
+  const outer = profile.filter(p => Math.abs(p.x - angle) <= outerSpan && Math.abs(p.x - angle) >= guard);
+  const outerLevel = outer.length ? medianValue(outer.map(p => p.y)) : Math.min(...inner.map(p => p.y));
+  const innerMin = Math.min(...inner.map(p => p.y));
+  const localBase = Math.min(outerLevel, innerMin);
+  const lift = best.y - localBase;
+
+  // 肩ピークや幅広ピーク用。局所最大ではなくても、周辺から少しでも盛り上がっていれば残す。
+  if(lift >= prominence || best.y >= minPeak + Math.max(0.5, prominence * 0.5)){
+    return {x: best.x, y: best.y, delta: best.x - angle, reason: 'small-or-shoulder', lift};
+  }
+  return null;
+}
+function estimatePhaseShift(measuredPeaks, phase, settings){
+  if(settings.autoShift !== 'on') return 0;
+  const maxShift = Math.max(0, settings.maxShift || 0);
+  if(!maxShift || !measuredPeaks.length) return 0;
+  const expected = phase.peaks.filter(p => p.angle >= settings.xMin && p.angle <= settings.xMax && (p.iNorm || 0) >= 20);
+  const deltas = [];
+  for(const p of expected){
+    let best = null, dBest = Infinity;
+    for(const pk of measuredPeaks){
+      const d = Math.abs(pk.x - p.angle);
+      if(d < dBest){ best = pk; dBest = d; }
+    }
+    if(best && dBest <= maxShift){
+      deltas.push({delta: best.x - p.angle, w: Math.sqrt(Math.max(1, p.iNorm || p.intensity || 1))});
+    }
+  }
+  if(!deltas.length) return 0;
+  const sw = deltas.reduce((s,d)=>s+d.w,0);
+  const avg = deltas.reduce((s,d)=>s+d.delta*d.w,0) / Math.max(sw, 1e-9);
+  return Math.max(-maxShift, Math.min(maxShift, avg));
+}
+function scorePhaseForSample(sampleName, measuredPeaks, measuredProfile, phase, settings){
+  const {tol, xMin, xMax, textureMode, textureBoost, mainRequired, minPeak} = settings;
+  const expected = phase.peaks.filter(p => p.angle >= xMin && p.angle <= xMax);
+  const phaseLabel = phase.displayName || phase.name;
+  if(!expected.length){
+    return {sample: sampleName, phase: phaseLabel, score: 0, main: '範囲外', matched: 0, expected: 0, missingStrong: 0, note: '表示範囲内に参照ピークなし'};
+  }
+  const shift = estimatePhaseShift(measuredPeaks, phase, settings);
+  const main = expected.reduce((a,b) => (a.iNorm || 0) >= (b.iNorm || 0) ? a : b);
+  const mainMatch = localMaxNear(measuredProfile, main.angle + shift, tol, minPeak);
+  const mainFound = Boolean(mainMatch);
+  if(mainRequired && !mainFound){
+    return {sample: sampleName, phase: phaseLabel, score: 0, main: `${(main.angle + shift).toFixed(3)} ×`, matched: 0, expected: expected.length, missingStrong: expected.filter(p=>p.iNorm>=50).length, note: `メインピークなし${shift?` / shift ${shift.toFixed(3)}°`:''}`};
+  }
+  const mainY = Math.max(1, mainMatch ? mainMatch.y : Math.max(...measuredProfile.map(p=>p.y), 1));
+  const mainI = Math.max(1, main.iNorm || main.intensity || 100);
+  let weightTotal = 0;
+  let weightMatched = 0;
+  let qualitySum = 0;
+  let missingStrong = 0;
+  let anomalyPenalty = 0;
+  let matchedCount = 0;
+  for(const p of expected){
+    const w = Math.sqrt(Math.max(1, p.iNorm || p.intensity || 1));
+    weightTotal += w;
+    const targetAngle = p.angle + shift;
+    const m = localMaxNear(measuredProfile, targetAngle, tol, minPeak);
+    if(!m){
+      if((p.iNorm || 0) >= 50) missingStrong += 1;
+      continue;
+    }
+    matchedCount += 1;
+    weightMatched += w;
+    const positionScore = Math.max(0, 1 - Math.abs(m.delta) / Math.max(tol, 1e-6));
+    const refRatio = Math.max(0.01, (p.iNorm || p.intensity || 1) / mainI);
+    const obsRatio = Math.max(0.001, m.y / mainY);
+    const isTexture = texturePass(p, textureMode);
+    const boost = isTexture ? Math.max(1, textureBoost) : 1.0;
+    const upper = refRatio * (isTexture ? boost : 1.90) + 0.10;
+    const lower = Math.max(0.004, refRatio / 5.0 - 0.02);
+    let intensityScore = 1.0;
+    if(obsRatio > upper){
+      const excess = (obsRatio - upper) / Math.max(upper, 0.02);
+      intensityScore = Math.max(0.05, 1 - excess * 0.65);
+      anomalyPenalty += w * Math.min(1, excess) * (isTexture ? 0.25 : 0.85);
+    } else if(obsRatio < lower){
+      intensityScore = 0.58;
+    } else {
+      const ratio = Math.abs(Math.log(obsRatio / Math.max(refRatio, 0.01)));
+      intensityScore = Math.max(0.58, 1 - ratio / Math.log(isTexture ? Math.max(2.2, boost) : 3.2));
+    }
+    qualitySum += w * (0.72 * positionScore + 0.28 * intensityScore);
+  }
+  const coverage = weightTotal ? weightMatched / weightTotal : 0;
+  const quality = weightMatched ? qualitySum / weightMatched : 0;
+  let score = 100 * (0.74 * coverage + 0.26 * quality);
+  score -= missingStrong * 6.5;
+  score -= anomalyPenalty * 1.7;
+  if(!mainFound) score *= 0.25;
+  score = Math.max(0, Math.min(100, score));
+  const notes = [];
+  if(shift) notes.push(`shift ${shift.toFixed(3)}°`);
+  if(!mainFound) notes.push('メイン弱/なし');
+  if(missingStrong) notes.push(`強ピーク欠損${missingStrong}`);
+  if(anomalyPenalty > 1) notes.push('非配向ピーク過大');
+  if(textureMode !== 'none') notes.push(`${textureMode}補正`);
+  return {
+    sample: sampleName,
+    phase: phaseLabel,
+    score,
+    main: `${(main.angle + shift).toFixed(3)} ${mainFound ? '○' : '×'}`,
+    matched: matchedCount,
+    expected: expected.length,
+    missingStrong,
+    note: notes.join(' / ') || 'OK',
+    color: phase.color
+  };
 }
 
 function analyze(){
-  const tbody=$('matchTable').querySelector('tbody'); tbody.innerHTML=''; state.matches=[]; state.selectedMatch=-1;
-  if(!state.measured.length)return;
-  const refs=visibleRefs(), tol=n('tol',.2), peaks=detectPeaks(state.measured[0].norm,n('minPeak',8));
-  for(const pk of peaks){const m=nearestRef(pk.x,refs,tol); if(m){state.matches.push({obs:pk.x,phase:m.peak.ref.label,ref:m.peak.angle,delta:pk.x-m.peak.angle,hkl:hkl(m.peak),peak:m.peak})}}
-  state.matches.forEach((r,i)=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${r.obs.toFixed(3)}</td><td>${esc(r.phase)}</td><td>${r.ref.toFixed(3)}</td><td>${r.delta.toFixed(3)}</td><td>${esc(r.hkl)}</td>`;tr.onclick=()=>{state.selectedMatch=i;[...tbody.children].forEach(x=>x.classList.remove('selected'));tr.classList.add('selected')};tbody.appendChild(tr)});
-  const cb=$('candidateTable').querySelector('tbody'); cb.innerHTML='';
-  rankPhases(peaks).forEach(r=>{cb.insertAdjacentHTML('beforeend',`<tr><td>${r.score.toFixed(1)}</td><td>${esc(r.label)}</td><td>${r.main.toFixed(3)}${r.mainFound?'':' missing'}</td><td>${r.matched}/${r.total}</td></tr>`)});
+  const tol = num($('tol').value,0.2);
+  const scoreRefs = scoringRefSets();
+  const xMin = num($('xMin').value,20), xMax = num($('xMax').value,70);
+  const settings = {
+    tol,
+    xMin,
+    xMax,
+    textureMode: $('textureMode')?.value || 'none',
+    textureBoost: num($('textureBoost')?.value, 3),
+    minPeak: num($('minPeakI')?.value, 5),
+    autoShift: $('autoShift')?.value || 'on',
+    maxShift: num($('maxShift')?.value, 0.5),
+    mainRequired: $('mainPeakRequired')?.checked ?? true
+  };
+  state.analyses = visibleMeasured().map(tr => {
+    const peaks = detectPeaks(tr.norm, 7, Math.max(0.10, tol*0.8));
+    const refs = selectedRefPeaksForTrace(tr);
+    const rows = peaks.map(pk => ({...pk, match: nearestRef(pk.x, refs, tol)}));
+    const candidates = scoreRefs.map(phase => scorePhaseForSample(sampleDataName(tr), peaks, tr.norm, phase, settings))
+      .sort((a,b)=>b.score-a.score);
+    return {sampleId: tr.id || sampleDataName(tr), sample: sampleDataName(tr), label: sampleLabel(tr), peaks: rows, matched: rows.filter(r=>r.match).length, unknown: rows.filter(r=>!r.match).length, candidates};
+  });
+  renderTables();
 }
 
-function render(){renderRefList(); state.lastSvg=buildSvg(); $('chart').innerHTML=state.lastSvg; analyze(); $('status').textContent=`測定 ${state.measured.length}件 / 参照 ${state.refs.length}件`;}
-async function loadFiles(){state.measured=[];state.refs=[];let ci=0;for(const f of $('measFiles').files){const t=parseMeasured(await f.text(),f.name);if(t.points.length)state.measured.push(t)}for(const f of $('refFiles').files){const r=parseReference(await f.text(),f.name,colors[ci%colors.length],markers[ci%markers.length]);if(r.peaks.length){state.refs.push(r);ci++}}state.selectedRef=state.refs.length?0:-1;if(state.selectedRef>=0)selectRef(0);render()}
-function demo(){state.measured=[parseMeasured(Array.from({length:1200},(_,i)=>{const x=20+i*50/1199;let y=5+Math.random()*3;[30.3,35.6,55.4,62.7].forEach((mu,j)=>y+=Math.exp(-.5*((x-mu)/.08)**2)*[100,35,22,28][j]);return`${x} ${y}`}).join('\n'),'demo.xy')];state.refs=[parseReference('d 2θ I fix h k l\n2.95 30.3 100 0 1 1 0\n2.52 35.6 60 0 1 1 3\n1.65 55.4 45 0 0 1 4','M-type.txt','#1455d9','circle')];state.selectedRef=0;selectRef(0);render()}
-function download(name,text,type){const b=new Blob([text],{type}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
-function savePng(){const blob=new Blob([state.lastSvg],{type:'image/svg+xml'}),url=URL.createObjectURL(blob),img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=img.width*2;c.height=img.height*2;const ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,c.width,c.height);ctx.scale(2,2);ctx.drawImage(img,0,0);c.toBlob(b=>{const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='xrd_graph.png';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)},'image/png');URL.revokeObjectURL(url)};img.src=url}
+function renderTables(){
+  const selector = $('candidateSampleSelect');
+  const previous = selector ? selector.value : '__all__';
+  if(selector){
+    const options = ['<option value="__all__">すべて</option>'];
+    for(const a of state.analyses){
+      const label = a.label && a.label !== a.sample ? `${a.sample} / ${a.label}` : a.sample;
+      options.push(`<option value="${esc(a.sampleId)}">${esc(label)}</option>`);
+    }
+    selector.innerHTML = options.join('');
+    if([...selector.options].some(o => o.value === previous)) selector.value = previous;
+    else selector.value = '__all__';
+  }
+  const selectedSample = selector ? selector.value : '__all__';
+  const visibleAnalyses = selectedSample === '__all__' ? state.analyses : state.analyses.filter(a => String(a.sampleId) === String(selectedSample));
 
-$('loadBtn').onclick=loadFiles; $('demoBtn').onclick=demo; $('clearBtn').onclick=()=>{state.measured=[];state.refs=[];render()};
-$('renderBtn').onclick=render; $('saveSvg').onclick=()=>download('xrd_graph.svg',state.lastSvg,'image/svg+xml'); $('savePng').onclick=savePng;
-$('saveCsv').onclick=()=>download('xrd_matches.csv',['obs,phase,ref,delta,hkl',...state.matches.map(r=>`${r.obs},${r.phase},${r.ref},${r.delta},${r.hkl}`)].join('\n'),'text/csv');
-$('applyRef').onclick=()=>{const r=state.refs[state.selectedRef];if(!r)return;r.label=$('refLabel').value||r.label;r.color=$('refColor').value||r.color;r.marker=$('refMarker').value||r.marker;render()};
-$('removeRef').onclick=()=>{if(state.selectedRef>=0){state.refs.splice(state.selectedRef,1);state.selectedRef=Math.min(state.selectedRef,state.refs.length-1);render()}};
-$('hidePeak').onclick=()=>{const m=state.matches[state.selectedMatch];if(m){m.peak.hidden=true;render()}};
-$('showPeaks').onclick=()=>{const r=state.refs[state.selectedRef];if(r){r.peaks.forEach(p=>p.hidden=false);render()}};
-['xMin','xMax','offset','tol','minPeak','minRef','svgW','svgH','normalize'].forEach(id=>{$(id).oninput=render;$(id).onchange=render});
-render();
+  const sumBody = $('summaryTable').querySelector('tbody');
+  sumBody.innerHTML = '';
+  const limit = Math.max(1, Math.floor(num($('candidateLimit')?.value, 12)));
+  for(const a of visibleAnalyses){
+    for(const c of a.candidates.slice(0, limit)){
+      const pct = `${c.score.toFixed(1)}%`;
+      sumBody.insertAdjacentHTML('beforeend', `<tr><td>${esc(c.sample)}</td><td>${esc(c.phase)}</td><td>${pct}</td><td>${esc(c.main)}</td><td>${c.matched}/${c.expected}</td><td>${c.missingStrong}</td><td>${esc(c.note)}</td></tr>`);
+    }
+  }
+  const peakBody = $('peakTable').querySelector('tbody');
+  peakBody.innerHTML = '';
+  for(const a of visibleAnalyses){
+    for(const p of a.peaks){
+      const m = p.match;
+      peakBody.insertAdjacentHTML('beforeend', `<tr><td>${esc(a.sample)}</td><td>${p.x.toFixed(3)}</td><td>${p.y.toFixed(1)}</td><td>${m ? m.ref.angle.toFixed(3) : 'Unknown'}</td><td>${m ? esc(m.ref.phaseLabel || m.ref.phase) : ''}</td><td>${m ? m.delta.toFixed(3) : ''}</td><td>${m ? esc(hklText(m.ref)) : ''}</td></tr>`);
+    }
+  }
+}
+
+function markerLabel(m){
+  return {
+    triangle_down:'▼', triangle_up:'▲', triangle_left:'◀', triangle_right:'▶',
+    circle:'●', diamond:'◆', square:'■', cross:'×', plus:'＋',
+    star:'★', star6:'✶', wedge_down:'▾', wedge_up:'▴', wedge_left:'‹', wedge_right:'›'
+  }[m] || m;
+}
+function renderEditTables(){
+  ensureRuntimeState();
+  const mb = $('measEditTable').querySelector('tbody');
+  mb.innerHTML = '';
+  state.measured.forEach((m, i) => {
+    const active = traceRefIds(m);
+    const chips = state.refs.map((r) => {
+      const rid = refId(r);
+      return `<label class="refchip" title="${esc(phaseLabel(r))}"><input data-type="meas-ref" data-i="${i}" data-ref="${esc(rid)}" type="checkbox" ${active.has(rid) ? 'checked' : ''}><span style="color:${esc(r.color)}">${markerLabel(r.marker || 'triangle_down')}</span>${esc(phaseLabel(r))}</label>`;
+    }).join('');
+    mb.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td class="center"><input data-type="meas-use" data-i="${i}" type="checkbox" ${m.visible ? 'checked' : ''}></td>
+        <td><div class="traceTools"><button data-type="meas-up" data-i="${i}" title="上へ">↑</button><button data-type="meas-down" data-i="${i}" title="下へ">↓</button><button data-type="meas-del" data-i="${i}" title="削除">削除</button></div></td>
+        <td><div>${esc(m.rawName)}</div><div class="mini mono">元ファイル</div></td>
+        <td><input class="nameInput" data-type="meas-label" data-i="${i}" type="text" value="${esc(sampleLabel(m))}" placeholder="例: 1200C"></td>
+        <td><div class="refchips">${chips}</div></td>
+      </tr>`);
+  });
+  const rb = $('refEditTable').querySelector('tbody');
+  rb.innerHTML = '';
+  state.refs.forEach((r, i) => {
+    rb.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td class="center"><input data-type="ref-use" data-i="${i}" type="checkbox" ${r.visible ? 'checked' : ''}></td>
+        <td class="center"><input data-type="ref-color" data-i="${i}" type="color" value="${esc(r.color)}"></td>
+        <td><select data-type="ref-marker" data-i="${i}">${markerOptions.map(m => `<option value="${m}" ${((r.marker||'triangle_down')===m)?'selected':''}>${markerLabel(m)}</option>`).join('')}</select></td>
+        <td><div>${esc(r.rawName)}</div><div class="mini mono">${esc(r.name)}</div></td>
+        <td><input data-type="ref-label" data-i="${i}" type="text" value="${esc(phaseLabel(r))}" placeholder="例: M-type"></td>
+      </tr>`);
+  });
+}
+
+function greekText(s){
+  const map = {
+    alpha:'α', beta:'β', gamma:'γ', delta:'δ', epsilon:'ε', zeta:'ζ', eta:'η', theta:'θ', iota:'ι', kappa:'κ', lambda:'λ', mu:'μ', nu:'ν', xi:'ξ', omicron:'ο', pi:'π', rho:'ρ', sigma:'σ', tau:'τ', upsilon:'υ', phi:'φ', chi:'χ', psi:'ψ', omega:'ω',
+    Alpha:'Α', Beta:'Β', Gamma:'Γ', Delta:'Δ', Theta:'Θ', Lambda:'Λ', Mu:'Μ', Pi:'Π', Sigma:'Σ', Phi:'Φ', Psi:'Ψ', Omega:'Ω'
+  };
+  return String(s ?? '').replace(/\\([A-Za-z]+)/g, (m, name) => map[name] || m);
+}
+function readScriptToken(s, i){
+  const next = s[i + 1];
+  if(!next) return null;
+  if(next === '{'){
+    const end = s.indexOf('}', i + 2);
+    if(end > i + 2) return {text: s.slice(i + 2, end), end: end + 1};
+    return null;
+  }
+  // T_s のような1文字添字だけ自動変換。900C_milled などのファイル名は崩さない。
+  const after = s[i + 2] || '';
+  if(!/[A-Za-z0-9]/.test(after)) return {text: next, end: i + 2};
+  return null;
+}
+function richSpans(text){
+  const s = greekText(text);
+  const spans = [];
+  let buf = '';
+  for(let i=0; i<s.length; i++){
+    const ch = s[i];
+    if(ch === '_' || ch === '^'){
+      const token = readScriptToken(s, i);
+      if(token){
+        if(buf){ spans.push({text: buf, mode: 'normal'}); buf = ''; }
+        spans.push({text: greekText(token.text), mode: ch === '_' ? 'sub' : 'sup'});
+        i = token.end - 1;
+        continue;
+      }
+    }
+    buf += ch;
+  }
+  if(buf) spans.push({text: buf, mode: 'normal'});
+  return spans;
+}
+function svgRichText(x, y, text, opts={}){
+  const fontSize = opts.fontSize ?? 20;
+  const anchor = opts.anchor || 'start';
+  const extra = opts.extra || '';
+  const spans = richSpans(text);
+  if(!spans.length) return '';
+  const body = spans.map(sp => {
+    if(sp.mode === 'sub') return `<tspan baseline-shift="sub" font-size="65%">${esc(sp.text)}</tspan>`;
+    if(sp.mode === 'sup') return `<tspan baseline-shift="super" font-size="65%">${esc(sp.text)}</tspan>`;
+    return `<tspan>${esc(sp.text)}</tspan>`;
+  }).join('');
+  return `<text ${extra} x="${Number(x).toFixed(2)}" y="${Number(y).toFixed(2)}" font-size="${Number(fontSize).toFixed(2)}" text-anchor="${anchor}">${body}</text>`;
+}
+function polygonPoints(points){ return points.map(([x,y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' '); }
+function starPoints(x, y, outer, inner, n, rot=-Math.PI/2){
+  const pts = [];
+  for(let i=0; i<n*2; i++){
+    const r = i % 2 ? inner : outer;
+    const a = rot + i * Math.PI / n;
+    pts.push([x + Math.cos(a)*r, y + Math.sin(a)*r]);
+  }
+  return polygonPoints(pts);
+}
+
+function estimateRichTextWidth(text, fontSize){
+  const plain = String(text ?? '').replace(/\\(theta|alpha|beta|gamma|delta|Delta|mu|lambda|pi|phi|omega|Omega|sigma|tau|epsilon|kappa|rho|chi|psi)/g, 'θ')
+    .replace(/[{}_^]/g, '');
+  let w = 0;
+  for(const ch of plain){
+    if(/[\u3040-\u30ff\u3400-\u9fff]/.test(ch)) w += fontSize * 0.95;
+    else if(/[A-Z0-9]/.test(ch)) w += fontSize * 0.58;
+    else if(/[a-z]/.test(ch)) w += fontSize * 0.48;
+    else if(/\s/.test(ch)) w += fontSize * 0.34;
+    else w += fontSize * 0.42;
+  }
+  return Math.max(fontSize * 1.5, w);
+}
+function fitLegendText(text, maxWidth, fontSize){
+  const raw = String(text ?? '');
+  if(estimateRichTextWidth(raw, fontSize) <= maxWidth) return raw;
+  const ell = '…';
+  let out = raw;
+  while(out.length > 4 && estimateRichTextWidth(out + ell, fontSize) > maxWidth) out = out.slice(0, -1);
+  return out + ell;
+}
+function buildLegendLayout(refSets, availableW, fontSize){
+  const rows = [];
+  let row = [];
+  let rowW = 0;
+  const gap = Math.max(18, fontSize * 0.90);
+  const markerTextGap = Math.max(24, fontSize * 1.15);
+  const maxItemW = Math.max(110, Math.min(availableW, availableW * 0.48));
+  for(const r of refSets){
+    const rawLabel = phaseLabel(r);
+    const textMax = Math.max(60, maxItemW - markerTextGap - gap);
+    const label = fitLegendText(rawLabel, textMax, fontSize);
+    const itemW = Math.min(maxItemW, markerTextGap + estimateRichTextWidth(label, fontSize) + gap);
+    if(row.length && rowW + itemW > availableW){ rows.push(row); row = []; rowW = 0; }
+    row.push({ref:r, label, itemW});
+    rowW += itemW;
+  }
+  if(row.length) rows.push(row);
+  return rows;
+}
+function probeCandidatesAt(angle){
+  const win = Math.max(0.01, num($('probeWindow')?.value, Math.max(num($('tol')?.value, 0.20), 0.35)));
+  const rows = [];
+  // ピーク調査は、表示中の参照相だけでなく、読み込み済みの全参照データから探す。
+  for(const set of state.refs){
+    for(const p of (set.peaks || [])){
+      const delta = angle - p.angle;
+      const ad = Math.abs(delta);
+      if(ad <= win){
+        rows.push({phase: phaseLabel(set), color: set.color, marker: set.marker || 'triangle_down', angle: p.angle, delta, intensity: p.iNorm ?? p.intensity ?? 0, hkl: hklText(p), d: p.d, visible: Boolean(set.visible)});
+      }
+    }
+  }
+  rows.sort((a,b) => Math.abs(a.delta) - Math.abs(b.delta) || (b.intensity || 0) - (a.intensity || 0));
+  return rows.slice(0, 80);
+}
+function snapProbeAngle(angle){
+  if(($('probeSnap')?.value || 'on') !== 'on') return angle;
+  const win = Math.max(0.03, num($('probeWindow')?.value, 0.35));
+  const threshold = Math.max(1, num($('minPeakI')?.value, 5));
+  let best = null;
+  for(const tr of visibleMeasured()){
+    normalizeTrace(tr);
+    for(const pk of detectPeaks(tr.norm || [], threshold, Math.max(0.08, win * 0.35))){
+      const d = Math.abs(pk.x - angle);
+      if(d <= win && (!best || d < best.d || (Math.abs(d - best.d) < 1e-9 && pk.y > best.y))) best = {...pk, d};
+    }
+  }
+  return best ? best.x : angle;
+}
+function setProbeAngle(angle, opts={}){
+  const xMin = state.zoomView ? state.zoomView.xMin : num($('xMin')?.value,20);
+  const xMax = state.zoomView ? state.zoomView.xMax : num($('xMax')?.value,70);
+  const a = Math.max(Math.min(angle, xMax), xMin);
+  state.probe = {angle: opts.snap === false ? a : snapProbeAngle(a)};
+  if(opts.render) renderOutputOnly();
+  else renderProbeTable();
+}
+function clearProbeMarker(){ state.probe = null; renderOutputOnly(); }
+function renderProbeTable(){
+  const info = $('probeInfo');
+  const table = $('probeTable');
+  if(!info || !table) return;
+  const body = table.querySelector('tbody');
+  body.innerHTML = '';
+  if(!state.probe || !Number.isFinite(state.probe.angle)){
+    info.classList.add('probeEmpty');
+    info.innerHTML = 'グラフ上の気になるピークをクリックすると、ここに全参照データから由来候補が出ます。';
+    return;
+  }
+  const rows = probeCandidatesAt(state.probe.angle);
+  const win = Math.max(0.01, num($('probeWindow')?.value, 0.35));
+  info.classList.remove('probeEmpty');
+  info.innerHTML = `調査中: <b>${state.probe.angle.toFixed(3)}°</b> ± ${win.toFixed(2)}° / 候補 ${rows.length}件`;
+  for(const r of rows){
+    body.insertAdjacentHTML('beforeend', `<tr><td><span style="color:${esc(r.color)}">${markerLabel(r.marker)}</span> ${esc(r.phase)}</td><td>${r.angle.toFixed(3)}</td><td>${r.delta.toFixed(3)}</td><td>${Number(r.intensity || 0).toFixed(0)}</td><td>${esc(r.hkl)}</td><td>${Number.isFinite(r.d) ? r.d.toFixed(4) : ''}</td></tr>`);
+  }
+  if(!rows.length){
+    body.insertAdjacentHTML('beforeend', '<tr><td colspan="6">この範囲には、読み込み済み参照データ内で近いピークがありません。</td></tr>');
+  }
+}
+function moveProbeDom(svg, x, angle){
+  svg.querySelectorAll('.probeX').forEach(el => {
+    if(el.tagName === 'line'){ el.setAttribute('x1', x); el.setAttribute('x2', x); }
+    else if(el.tagName === 'circle'){ el.setAttribute('cx', x); }
+    else if(el.tagName === 'text'){ el.setAttribute('x', x); el.textContent = `${angle.toFixed(3)}°`; }
+  });
+}
+
+function markerSvg(x, y, marker, color, size, extra=''){
+  const s = size;
+  if(marker === 'circle') return `<circle ${extra} cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${s.toFixed(2)}" fill="${color}" stroke="${color}"/>`;
+  if(marker === 'diamond') return `<polygon ${extra} points="${x.toFixed(2)},${(y-s).toFixed(2)} ${(x-s).toFixed(2)},${y.toFixed(2)} ${x.toFixed(2)},${(y+s).toFixed(2)} ${(x+s).toFixed(2)},${y.toFixed(2)}" fill="${color}" stroke="${color}"/>`;
+  if(marker === 'triangle_up') return `<polygon ${extra} points="${x.toFixed(2)},${(y-s*0.70).toFixed(2)} ${(x-s*0.78).toFixed(2)},${(y+s*0.62).toFixed(2)} ${(x+s*0.78).toFixed(2)},${(y+s*0.62).toFixed(2)}" fill="${color}" stroke="${color}"/>`;
+  if(marker === 'triangle_left') return `<polygon ${extra} points="${(x-s*0.72).toFixed(2)},${y.toFixed(2)} ${(x+s*0.58).toFixed(2)},${(y-s*0.78).toFixed(2)} ${(x+s*0.58).toFixed(2)},${(y+s*0.78).toFixed(2)}" fill="${color}" stroke="${color}"/>`;
+  if(marker === 'triangle_right') return `<polygon ${extra} points="${(x+s*0.72).toFixed(2)},${y.toFixed(2)} ${(x-s*0.58).toFixed(2)},${(y-s*0.78).toFixed(2)} ${(x-s*0.58).toFixed(2)},${(y+s*0.78).toFixed(2)}" fill="${color}" stroke="${color}"/>`;
+  if(marker === 'square') return `<rect ${extra} x="${(x-s).toFixed(2)}" y="${(y-s).toFixed(2)}" width="${(2*s).toFixed(2)}" height="${(2*s).toFixed(2)}" fill="${color}" stroke="${color}"/>`;
+  if(marker === 'cross') return `<g ${extra} stroke="${color}" stroke-width="${Math.max(2, s*0.28).toFixed(2)}"><line x1="${(x-s).toFixed(2)}" y1="${(y-s).toFixed(2)}" x2="${(x+s).toFixed(2)}" y2="${(y+s).toFixed(2)}"/><line x1="${(x-s).toFixed(2)}" y1="${(y+s).toFixed(2)}" x2="${(x+s).toFixed(2)}" y2="${(y-s).toFixed(2)}"/></g>`;
+  if(marker === 'plus') return `<g ${extra} stroke="${color}" stroke-width="${Math.max(2, s*0.30).toFixed(2)}" stroke-linecap="round"><line x1="${(x-s).toFixed(2)}" y1="${y.toFixed(2)}" x2="${(x+s).toFixed(2)}" y2="${y.toFixed(2)}"/><line x1="${x.toFixed(2)}" y1="${(y-s).toFixed(2)}" x2="${x.toFixed(2)}" y2="${(y+s).toFixed(2)}"/></g>`;
+  if(marker === 'star') return `<polygon ${extra} points="${starPoints(x,y,s,s*0.43,5)}" fill="${color}" stroke="${color}"/>`;
+  if(marker === 'star6') return `<g ${extra} fill="${color}" stroke="${color}"><polygon points="${polygonPoints([[x,y-s],[x-s*0.86,y+s*0.50],[x+s*0.86,y+s*0.50]])}"/><polygon points="${polygonPoints([[x,y+s],[x-s*0.86,y-s*0.50],[x+s*0.86,y-s*0.50]])}"/></g>`;
+  if(marker === 'wedge_up') return `<polygon ${extra} points="${polygonPoints([[x,y-s],[x-s*0.42,y+s],[x+s*0.42,y+s]])}" fill="${color}" stroke="${color}"/>`;
+  if(marker === 'wedge_down') return `<polygon ${extra} points="${polygonPoints([[x,y+s],[x-s*0.42,y-s],[x+s*0.42,y-s]])}" fill="${color}" stroke="${color}"/>`;
+  if(marker === 'wedge_left') return `<polygon ${extra} points="${polygonPoints([[x-s,y],[x+s,y-s*0.42],[x+s,y+s*0.42]])}" fill="${color}" stroke="${color}"/>`;
+  if(marker === 'wedge_right') return `<polygon ${extra} points="${polygonPoints([[x+s,y],[x-s,y-s*0.42],[x-s,y+s*0.42]])}" fill="${color}" stroke="${color}"/>`;
+  return `<polygon ${extra} points="${x.toFixed(2)},${(y+s*0.62).toFixed(2)} ${(x-s*0.72).toFixed(2)},${(y-s*0.55).toFixed(2)} ${(x+s*0.72).toFixed(2)},${(y-s*0.55).toFixed(2)}" fill="${color}" stroke="${color}"/>`;
+}
+function makeSvg(){
+  const measured = visibleMeasured();
+  measured.forEach(normalizeTrace);
+  const refSets = selectedRefSets();
+  const refs = refSets.flatMap(r => r.peaks.map(p => ({...p, color: r.color, phaseLabel: r.displayName || r.name})));
+  const baseXMin = num($('xMin').value,20), baseXMax = num($('xMax').value,70);
+  const xMin = state.zoomView ? state.zoomView.xMin : baseXMin;
+  const xMax = state.zoomView ? state.zoomView.xMax : baseXMax;
+  const offset = num($('offset').value,120), yPad = num($('yPad').value,45), topPad = num($('topPad')?.value,55);
+  const svgW = num($('svgW').value,960), svgH = num($('svgH').value,760);
+  const fontSize = num($('fontSize').value,34), lineWidth = num($('lineWidth').value,1.4);
+  const markerSize = num($('markerSize').value,12), markerLift = num($('markerLift').value,15);
+  const markerJitter = num($('markerJitter')?.value,0);
+  const hideUnmatchedMarkers = $('hideUnmatchedMarkers')?.checked ?? true;
+  const markerPeakWindow = num($('markerPeakWindow')?.value, Math.max(num($('tol')?.value, 0.20), 0.20));
+  const markerPeakMin = num($('markerPeakMin')?.value, 2.0);
+  const markerPeakProminence = num($('markerPeakProminence')?.value, 1.0);
+  const markerShoulderDetect = $('markerShoulderDetect')?.checked ?? true;
+  const baseMarkerScale = num($('markerScale')?.value,0.75);
+  const autoMarkerScale = ($('autoMarkerScale')?.value || 'on') === 'on';
+  const markerMode = $('markerMode')?.value || 'curve';
+  const hklMinI = num($('hklMinI').value,60);
+  const n = Math.max(1, measured.length);
+  const showMarkers = $('showMarkers').checked;
+  const markerEach = $('markerEach').checked;
+  const showSticks = $('showSticks').checked;
+  const hklLabel = $('hklLabel').checked;
+  const showYTicks = $('showYTicks').checked;
+  const showLegend = $('showLegend')?.checked ?? true;
+  const labelPos = $('labelPos').value;
+  const orderTop = $('order').value === 'top';
+
+  const stickRows = showSticks ? refSets.length : 0;
+  const stickPanelH = showSticks ? Math.min(150, 22 * stickRows + 18) : 0;
+  const yMinDefault = -Math.max(0, yPad);
+  const yMaxDefault = 100 + offset * (n - 1) + Math.max(0, topPad);
+  const yMin = state.zoomView && Number.isFinite(state.zoomView.yMin) ? state.zoomView.yMin : yMinDefault;
+  const yMax = state.zoomView && Number.isFinite(state.zoomView.yMax) ? state.zoomView.yMax : yMaxDefault;
+  const marginLR = {l: 165, r: 82};
+  const plotW0 = Math.max(120, svgW - marginLR.l - marginLR.r);
+  const legendFont = Math.max(15, fontSize * 0.54);
+  const legendRows = showLegend && refSets.length ? buildLegendLayout(refSets, plotW0, legendFont) : [];
+  const legendRowH = Math.max(25, legendFont * 1.55);
+  const legendH = legendRows.length ? Math.max(48, legendRows.length * legendRowH + 18) : 20;
+  const margin = {l: marginLR.l, r: marginLR.r, t: 34 + legendH, b: 112 + stickPanelH};
+  const plotW = Math.max(120, svgW - margin.l - margin.r);
+  const plotH = Math.max(120, svgH - margin.t - margin.b);
+  const sx = x => margin.l + (x - xMin) / (xMax - xMin) * plotW;
+  const sy = y => margin.t + (yMax - y) / (yMax - yMin) * plotH;
+  const plotBottom = margin.t + plotH;
+  const tickIn = Math.max(10, Math.min(22, fontSize * 0.45));
+
+  const parts = [];
+  parts.push(`<svg xmlns="${ns}" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" role="img" data-x-min="${xMin}" data-x-max="${xMax}" data-y-min="${yMin}" data-y-max="${yMax}" data-plot-left="${margin.l}" data-plot-top="${margin.t}" data-plot-width="${plotW}" data-plot-height="${plotH}">`);
+  parts.push(`<rect width="100%" height="100%" fill="white"/>`);
+  parts.push(`<style>
+    text{font-family:'Times New Roman','Yu Mincho',serif;fill:#000}
+    .axis{stroke:#000;stroke-width:2;fill:none}
+    .trace{fill:none;stroke:#000;stroke-linejoin:round;stroke-linecap:round}
+    .tick{stroke:#000;stroke-width:2}
+    .marker{stroke-width:1}
+    .stick{stroke-width:1.4}
+    .refLabel{font-family:'Times New Roman','Yu Mincho',serif}
+  </style>`);
+  parts.push(`<defs><clipPath id="plotClip"><rect x="${margin.l}" y="${margin.t}" width="${plotW}" height="${plotH}"/></clipPath></defs>`);
+  if(showLegend && legendRows.length){
+    const legendY0 = Math.max(24, margin.t - legendH + 24);
+    legendRows.forEach((rowItems, rowIdx) => {
+      let xCursor = margin.l + 8;
+      const y = legendY0 + rowIdx * legendRowH;
+      rowItems.forEach(item => {
+        const r = item.ref;
+        parts.push(markerSvg(xCursor, y, r.marker || 'triangle_down', r.color, Math.max(7, legendFont*0.50)));
+        parts.push(svgRichText(xCursor + Math.max(22, legendFont*1.15), y + legendFont*0.38, item.label, {fontSize: legendFont, anchor: 'start'}));
+        xCursor += item.itemW;
+      });
+    });
+  }
+  parts.push(`<rect class="axis" x="${margin.l}" y="${margin.t}" width="${plotW}" height="${plotH}"/>`);
+
+  const startTick = Math.ceil(xMin / 10) * 10;
+  for(let x = startTick; x <= xMax + 1e-9; x += 10){
+    const X = sx(x);
+    parts.push(`<line class="tick" x1="${X}" y1="${plotBottom}" x2="${X}" y2="${plotBottom - tickIn}"/>`);
+    parts.push(`<line class="tick" x1="${X}" y1="${margin.t}" x2="${X}" y2="${margin.t + tickIn}"/>`);
+    parts.push(`<text x="${X}" y="${plotBottom + 47}" font-size="${fontSize * 1.04}" text-anchor="middle">${x}</text>`);
+  }
+  if(showYTicks){
+    for(let y = 0; y <= 100; y += 50){
+      const Y = sy(y);
+      parts.push(`<line class="tick" x1="${margin.l}" y1="${Y}" x2="${margin.l + 18}" y2="${Y}"/>`);
+      parts.push(`<text x="${margin.l - 14}" y="${Y + 7}" font-size="${fontSize * 0.50}" text-anchor="end">${y}</text>`);
+    }
+  }
+
+  const xLabelY = plotBottom + 82;
+  parts.push(`<text x="${margin.l + plotW * 0.43}" y="${xLabelY}" font-size="${fontSize * 1.00}" text-anchor="middle"><tspan font-style="italic">2θ</tspan><tspan>(deg.)</tspan></text>`);
+  parts.push(`<text x="${margin.l + plotW * 0.85}" y="${xLabelY}" font-size="${fontSize * 0.92}" text-anchor="middle">Cu-Kα</text>`);
+  parts.push(`<text transform="translate(${Math.max(54, margin.l * 0.38)},${margin.t + plotH / 2}) rotate(-90)" font-size="${fontSize * 0.92}" text-anchor="middle">Intensity (arb. units)</text>`);
+
+  measured.forEach((tr, fileIndex) => {
+    const stackIndex = orderTop ? (n - 1 - fileIndex) : fileIndex;
+    const base = stackIndex * offset;
+    const pts = tr.norm.filter(p => p.x >= xMin && p.x <= xMax);
+    if(pts.length){
+      const d = pts.map((p,i) => `${i ? 'L' : 'M'}${sx(p.x).toFixed(2)},${sy(p.y + base).toFixed(2)}`).join(' ');
+      parts.push(`<path class="trace" clip-path="url(#plotClip)" d="${d}" stroke-width="${lineWidth}"/>`);
+    }
+    const label = sampleLabel(tr);
+    if(labelPos !== 'none' && label){
+      const lx = labelPos === 'right' ? margin.l + plotW - 10 : margin.l + 10;
+      const anchor = labelPos === 'right' ? 'end' : 'start';
+      parts.push(svgRichText(lx, sy(base + 72), label, {fontSize: fontSize * 0.92, anchor}));
+    }
+    const traceRefs = selectedRefPeaksForTrace(tr);
+    if(showMarkers && traceRefs.length){
+      traceRefs.forEach((r, ri) => {
+        if(r.angle < xMin || r.angle > xMax) return;
+        const matchedObservedPeak = hideUnmatchedMarkers ? observedMarkerSupport(tr.norm, r.angle, markerPeakWindow, markerPeakMin, markerPeakProminence, markerShoulderDetect) : null;
+        if(hideUnmatchedMarkers && !matchedObservedPeak) return;
+        const X = sx(r.angle) + markerJitter * ((ri % 3) - 1);
+        const yData = interpY(tr.norm, matchedObservedPeak ? matchedObservedPeak.x : r.angle);
+        let yM = markerMode === 'fixed' ? base + 106 : Math.min(base + 108, base + yData + markerLift);
+        if(!Number.isFinite(yM)) yM = base + 100;
+        const Y = sy(yM);
+        const stackScale = autoMarkerScale ? Math.min(1, Math.max(0.45, 3.4 / Math.max(3, n))) : 1;
+        const s = markerSize * baseMarkerScale * stackScale * (0.78 + 0.22 * Math.sqrt((r.iNorm || 100) / 100));
+        parts.push(markerSvg(X, Y, r.marker || 'triangle_down', r.color, s, 'class="marker" clip-path="url(#plotClip)"'));
+        if(hklLabel && r.iNorm >= hklMinI && fileIndex === n - 1){
+          parts.push(`<text clip-path="url(#plotClip)" x="${X}" y="${(Y - s - 4).toFixed(2)}" font-size="${fontSize * 0.30}" text-anchor="middle">${esc(hklText(r))}</text>`);
+        }
+      });
+    }
+  });
+
+  if(showSticks){
+    const stickTop = plotBottom + 104;
+    refSets.forEach((set, rowIdx) => {
+      const y0 = stickTop + rowIdx * 22;
+      for(const r of set.peaks){
+        const X = sx(r.angle);
+        const h = 4 + r.iNorm * 0.16;
+        parts.push(`<line class="stick" x1="${X}" y1="${y0}" x2="${X}" y2="${y0 - h}" stroke="${set.color}"/>`);
+      }
+      const label = set.displayName || set.name;
+      parts.push(svgRichText(margin.l + 4, y0 + 12, `${label} (max=100)`, {fontSize: Math.max(10, fontSize * 0.30), anchor: 'start', extra: `class="refLabel" fill="${set.color}"`}));
+    });
+  }
+
+  if(state.probe && Number.isFinite(state.probe.angle) && state.probe.angle >= xMin && state.probe.angle <= xMax){
+    const px = sx(state.probe.angle);
+    const hy = Math.max(margin.t + 15, margin.t + Math.min(28, plotH * 0.08));
+    parts.push(`<line class="probeLine probeX" x1="${px.toFixed(2)}" y1="${margin.t}" x2="${px.toFixed(2)}" y2="${plotBottom}"/>`);
+    parts.push(`<line class="probeHit probeX" x1="${px.toFixed(2)}" y1="${margin.t}" x2="${px.toFixed(2)}" y2="${plotBottom}"/>`);
+    parts.push(markerSvg(px, hy, 'circle', '#111', Math.max(6, fontSize*0.20), 'class="probeHandle probeX"'));
+    parts.push(`<text class="probeX" x="${px.toFixed(2)}" y="${(hy - Math.max(10, fontSize*0.32)).toFixed(2)}" font-size="${Math.max(10, fontSize*0.30).toFixed(2)}" text-anchor="middle">${state.probe.angle.toFixed(3)}°</text>`);
+  }
+
+  parts.push(`</svg>`);
+  return parts.join('\n');
+}
+
+function setControlTab(tab){
+  const buttons = [...document.querySelectorAll('[data-tab-button]')];
+  const panes = [...document.querySelectorAll('fieldset[data-tab]')];
+  const valid = buttons.some(b => b.dataset.tabButton === tab) ? tab : 'files';
+  buttons.forEach(b => b.classList.toggle('active', b.dataset.tabButton === valid));
+  panes.forEach(p => { p.hidden = p.dataset.tab !== valid; });
+}
+function initControlTabs(){
+  document.querySelectorAll('[data-tab-button]').forEach(btn => {
+    btn.addEventListener('click', () => setControlTab(btn.dataset.tabButton));
+  });
+  setControlTab('files');
+}
+
+function applyLayoutRatio(){
+  const slider = $('layoutRatio');
+  const label = $('layoutRatioLabel');
+  if(!slider) return;
+  const left = Math.max(30, Math.min(70, Math.round(num(slider.value, 50))));
+  const right = 100 - left;
+  const mainEl = document.querySelector('main');
+  if(mainEl){
+    mainEl.style.setProperty('--left-col', `${left}fr`);
+    mainEl.style.setProperty('--right-col', `${right}fr`);
+  }
+  if(label) label.textContent = `左 ${left}% / グラフ ${right}%`;
+}
+
+function refreshRefSelectOptions(){
+  const refSelect = $('refSelect');
+  if(!refSelect) return;
+  const prev = refSelect.value;
+  refSelect.innerHTML = '<option value="all">すべて表示</option>' + state.refs.map(r => `<option value="${esc(refId(r))}">${esc(phaseLabel(r))}</option>`).join('');
+  if([...refSelect.options].some(o => o.value === prev)) refSelect.value = prev;
+}
+
+function renderOutputOnly(){
+  applyLayoutRatio();
+  updateMarkerScaleLabel();
+  const measured = visibleMeasured();
+  if(!measured.length){
+    $('svgHost').innerHTML = '<div class="status">測定データを読み込んでください。</div>';
+    $('summaryTable').querySelector('tbody').innerHTML = '';
+    $('peakTable').querySelector('tbody').innerHTML = '';
+    if($('probeTable')) $('probeTable').querySelector('tbody').innerHTML = '';
+    if($('probeInfo')) $('probeInfo').innerHTML = 'グラフ上の気になるピークをクリックすると、ここに全参照データから由来候補が出ます。';
+    const selector = $('candidateSampleSelect');
+    if(selector) selector.innerHTML = '<option value="__all__">すべて</option>';
+    const nRef = state.refs.reduce((s,r)=>s+r.peaks.length,0);
+    $('status').innerHTML = `<span class="pill">内蔵/追加参照 ${state.refs.length}相 / ${nRef}ピーク</span><br>必要な参照相にチェックを入れてから測定データを読み込んでください。`;
+    return;
+  }
+  state.lastSvgText = makeSvg();
+  $('svgHost').innerHTML = state.lastSvgText;
+  attachZoomHandlers();
+  analyze();
+  renderProbeTable();
+  const nPts = state.measured.reduce((s,t)=>s+t.points.length,0);
+  const nRef = state.refs.reduce((s,r)=>s+r.peaks.length,0);
+  $('status').innerHTML = `<span class="pill">測定 ${measured.length}件 / ${nPts.toLocaleString()}点</span><span class="pill">凡例/表示参照 ${selectedRefSets().length}相 / ${nRef}ピーク</span><br>現在の描画範囲: <span class="mono">${$('xMin').value}–${$('xMax').value} deg</span> / 測定値・参照値とも相ごとに max = 100 へ規格化 / 候補%はメインピークと配向補正込みの目安${state.zoomView ? ' / ズーム中' : ''}`;
+}
+
+function render(){
+  if(currentMode() === 'mh'){
+    ensureMHState();
+    renderMHEditTables();
+    renderMHOutputOnly();
+    return;
+  }
+  if(currentMode() === 'mt'){
+    ensureMTState();
+    renderMTEditTables();
+    renderMTOutputOnly();
+    return;
+  }
+  ensureRuntimeState();
+  renderEditTables();
+  refreshRefSelectOptions();
+  const tb = document.querySelector('.tables');
+  if(tb) tb.style.display = 'grid';
+  renderOutputOnly();
+}
+
+
+
+function currentMode(){ const v = $('graphMode')?.value || 'xrd'; return ['xrd','mh','mt'].includes(v) ? v : 'xrd'; }
+function currentGraphStem(){
+  const project = safeFileStem($('projectName')?.value || 'graph', 'graph');
+  const mode = currentMode();
+  if(mode === 'mh') return `${project}_mh_graph`;
+  if(mode === 'mt') return `${project}_mt_graph`;
+  return `${project}_xrd_graph`;
+}
+function splitCSVLine(line){
+  const out = []; let cur = '', q = false;
+  for(let i=0;i<line.length;i++){
+    const c = line[i];
+    if(c === '"') { q = !q; continue; }
+    if(c === ',' && !q){ out.push(cur.trim()); cur=''; continue; }
+    cur += c;
+  }
+  out.push(cur.trim());
+  return out;
+}
+function extractNumericFields(line){
+  return String(line).split(/[,\t ]+/).map(v => Number(String(v).replace(/[^\x00-\x7F]/g,''))).filter(Number.isFinite);
+}
+function parseMH(text, filename){
+  const lines = String(text || '').replace(/\r/g,'').split('\n');
+  let sampleName = '';
+  let mass = NaN;
+  let headerIndex = -1;
+  let hIdx = -1, mIdx = -1;
+  for(let i=0;i<lines.length;i++){
+    const raw = lines[i];
+    const low = raw.toLowerCase();
+    if(low.startsWith('sample name')){
+      const a = splitCSVLine(raw); sampleName = (a[1] || '').trim();
+    }
+    if(low.startsWith('sample weight')){
+      const a = splitCSVLine(raw); mass = Number(a[1]);
+    }
+    const cells = splitCSVLine(raw);
+    const lows = cells.map(c => c.toLowerCase().replace(/\s+/g,''));
+    const h = lows.findIndex(c => c === 'h' || c === 'h(oe)' || c === 'h(koe)' || c.startsWith('magneticfield'));
+    const m = lows.findIndex(c => c === 'm' || c === 'm(emu)' || c === 'm(emu/g)' || c.startsWith('magnetization'));
+    if(h >= 0 && m >= 0 && h !== m){ headerIndex = i; hIdx = h; mIdx = m; break; }
+  }
+  let rawPoints = [];
+  if(headerIndex >= 0){
+    for(let i=headerIndex+1;i<lines.length;i++){
+      const cells = splitCSVLine(lines[i]);
+      const h = Number(cells[hIdx]);
+      const m = Number(cells[mIdx]);
+      if(Number.isFinite(h) && Number.isFinite(m)) rawPoints.push({hOe:h, mEmu:m});
+    }
+  } else {
+    const numericRows = [];
+    for(const line of lines){
+      const nums = extractNumericFields(line);
+      if(nums.length >= 2) numericRows.push(nums.slice(0,2));
+    }
+    const maxAbsH = numericRows.reduce((a,r)=>Math.max(a,Math.abs(r[0])),0);
+    const factor = maxAbsH > 100 ? 1 : 1000;
+    rawPoints = numericRows.map(r => ({hOe:r[0]*factor, mEmu:r[1]}));
+  }
+  const name = sampleName || filename.replace(/\.[^.]+$/,'');
+  return {id: uniqueId('mh'), name, rawName: filename, displayName: name, visible: true, color: palette[state.mhTraces.length % palette.length], mass: Number.isFinite(mass) && mass > 0 ? mass : null, points: rawPoints};
+}
+function ensureMHState(){
+  if(!Array.isArray(state.mhTraces)) state.mhTraces = [];
+  state.mhTraces.forEach((t,i)=>{
+    if(!t.id) t.id = uniqueId('mh');
+    if(!t.displayName) t.displayName = t.name || t.rawName || `MH ${i+1}`;
+    if(!t.color) t.color = palette[i % palette.length];
+    if(!Array.isArray(t.points)) t.points = [];
+  });
+}
+function mhDisplayName(t){ return (t.displayName || t.name || t.rawName || '').trim(); }
+function mhMassForTrace(t){
+  const mode = $('mhMassMode')?.value || 'auto';
+  if(mode === 'raw') return null;
+  if(mode === 'manual'){
+    const m = num($('mhManualMass')?.value, NaN);
+    return Number.isFinite(m) && m > 0 ? m : null;
+  }
+  const m = Number(t.mass);
+  return Number.isFinite(m) && m > 0 ? m : null;
+}
+function movingAverage(values, win){
+  const n = Math.max(0, Math.floor(win));
+  if(n <= 1) return values.slice();
+  const half = Math.floor(n/2);
+  return values.map((v,i)=>{
+    let s=0,c=0;
+    for(let j=i-half;j<=i+half;j++) if(j>=0 && j<values.length){ s += values[j]; c++; }
+    return c ? s/c : v;
+  });
+}
+function mhPlotPoints(t){
+  const mass = mhMassForTrace(t);
+  const rawY = (t.points || []).map(p => mass ? p.mEmu / mass : p.mEmu);
+  const ys = movingAverage(rawY, num($('mhSmooth')?.value,0));
+  const step = Math.max(1, Math.floor(num($('mhPointStep')?.value,1)));
+  const pts = [];
+  for(let i=0;i<(t.points||[]).length;i+=step){
+    const p = t.points[i];
+    const y = ys[i];
+    const x = p.hOe / 1000;
+    if(Number.isFinite(x) && Number.isFinite(y)) pts.push({x,y});
+  }
+  return pts;
+}
+async function loadMHFiles(){
+  const files = [...($('mhFiles')?.files || [])];
+  if(!files.length){ render(); return; }
+  recordUndoPoint();
+  ensureMHState();
+  for(const f of files){
+    const text = await readFile(f);
+    const tr = parseMH(text, f.name);
+    if(tr.points.length) state.mhTraces.push(tr);
+  }
+  if($('graphMode')) $('graphMode').value = 'mh';
+  render();
+}
+function clearMH(){
+  recordUndoPoint();
+  state.mhTraces = [];
+  state.mhZoomView = null;
+  state.mhZoomHistory = [];
+  render();
+}
+function renderMHEditTables(){
+  ensureMHState();
+  const table = $('mhEditTable');
+  if(!table) return;
+  const body = table.querySelector('tbody');
+  body.innerHTML = state.mhTraces.map((t,i)=>{
+    const mass = Number.isFinite(Number(t.mass)) ? Number(t.mass) : '';
+    return `<tr>
+      <td class="center"><input type="checkbox" data-mh-type="use" data-i="${i}" ${t.visible!==false?'checked':''}></td>
+      <td class="traceTools"><button type="button" data-mh-type="up" data-i="${i}">↑</button><button type="button" data-mh-type="down" data-i="${i}">↓</button><button type="button" data-mh-type="del" data-i="${i}">削除</button></td>
+      <td><input class="mhColor" type="color" data-mh-type="color" data-i="${i}" value="${esc(t.color)}"></td>
+      <td class="mini">${esc(t.rawName || '')}</td>
+      <td><input type="text" data-mh-type="label" data-i="${i}" value="${esc(mhDisplayName(t))}"></td>
+      <td><input type="number" data-mh-type="mass" data-i="${i}" value="${esc(mass)}" step="0.0001" min="0"></td>
+      <td class="right">${(t.points||[]).length.toLocaleString()}</td>
+    </tr>`;
+  }).join('');
+}
+function handleMHEditEvent(e){
+  const t = e.target;
+  const type = t.dataset.mhType;
+  const i = Number(t.dataset.i);
+  if(!type || !Number.isFinite(i) || !state.mhTraces[i]) return;
+  commitEditStartSnapshot();
+  if(e.type === 'click' && !['up','down','del'].includes(type)) return;
+  if(type === 'up' || type === 'down'){
+    const j = type === 'up' ? i-1 : i+1;
+    if(j < 0 || j >= state.mhTraces.length) return;
+    const [item] = state.mhTraces.splice(i,1);
+    state.mhTraces.splice(j,0,item);
+    render(); return;
+  }
+  if(type === 'del'){
+    state.mhTraces.splice(i,1);
+    render(); return;
+  }
+  if(type === 'use') state.mhTraces[i].visible = t.checked;
+  if(type === 'color') state.mhTraces[i].color = t.value;
+  if(type === 'label') state.mhTraces[i].displayName = t.value;
+  if(type === 'mass'){
+    const m = Number(t.value);
+    state.mhTraces[i].mass = Number.isFinite(m) && m > 0 ? m : null;
+  }
+  renderMHOutputOnly();
+}
+function niceTicks(min, max, target=6){
+  if(!Number.isFinite(min) || !Number.isFinite(max) || min === max) return [min || 0];
+  const span = Math.abs(max-min);
+  const raw = span / Math.max(1,target);
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  const mult = raw/pow <= 1.5 ? 1 : raw/pow <= 3 ? 2 : raw/pow <= 7 ? 5 : 10;
+  const step = mult * pow;
+  const start = Math.ceil(min/step)*step;
+  const ticks=[];
+  for(let v=start; v<=max+step*0.25; v+=step) ticks.push(Math.abs(v)<step*1e-6?0:v);
+  return ticks;
+}
+function fmtTick(v){
+  const av = Math.abs(v);
+  if(av >= 100) return v.toFixed(0);
+  if(av >= 10) return Number.isInteger(v) ? v.toFixed(0) : v.toFixed(1).replace(/\.0$/,'');
+  if(av >= 1) return Number.isInteger(v) ? v.toFixed(0) : v.toFixed(1).replace(/\.0$/,'');
+  return v.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
+}
+function buildLineLegendLayout(traces, maxW, fontSize){
+  const rows=[]; let row=[]; let used=0;
+  traces.forEach(t=>{
+    const label = mhDisplayName(t);
+    const w = Math.min(maxW, 70 + label.length * fontSize * 0.52);
+    if(row.length && used + w > maxW){ rows.push(row); row=[]; used=0; }
+    row.push({trace:t, label, itemW:w}); used += w;
+  });
+  if(row.length) rows.push(row);
+  return rows;
+}
+function makeMHSvg(){
+  ensureMHState();
+  const traces = state.mhTraces.filter(t => t.visible !== false && (t.points||[]).length);
+  const svgW = num($('svgW')?.value,960), svgH = num($('svgH')?.value,760);
+  const fontSize = num($('fontSize')?.value,34), lineWidth = num($('lineWidth')?.value,2.0);
+  const showLegend = $('showLegend')?.checked ?? true;
+  const showZero = $('mhShowZero')?.checked ?? true;
+  const mirrorTicks = $('mhMirrorTicks')?.checked ?? true;
+  const xMinBase = num($('mhXMin')?.value,-15), xMaxBase = num($('mhXMax')?.value,15);
+  let xMin = state.mhZoomView ? state.mhZoomView.xMin : xMinBase;
+  let xMax = state.mhZoomView ? state.mhZoomView.xMax : xMaxBase;
+  const allPts = traces.flatMap(t => mhPlotPoints(t).filter(p => p.x >= Math.min(xMin,xMax) && p.x <= Math.max(xMin,xMax)));
+  let yMinBase = num($('mhYMin')?.value,-80), yMaxBase = num($('mhYMax')?.value,80);
+  if(($('mhAutoY')?.value || 'manual') === 'auto' && allPts.length){
+    const ys = allPts.map(p=>p.y);
+    yMinBase = Math.min(...ys); yMaxBase = Math.max(...ys);
+    const pad = Math.max(1, (yMaxBase-yMinBase)*0.08);
+    yMinBase -= pad; yMaxBase += pad;
+  }
+  let yMin = state.mhZoomView ? state.mhZoomView.yMin : yMinBase;
+  let yMax = state.mhZoomView ? state.mhZoomView.yMax : yMaxBase;
+  if(xMin === xMax){ xMin -= 1; xMax += 1; }
+  if(yMin === yMax){ yMin -= 1; yMax += 1; }
+  const marginLR = {l:170, r:64};
+  const plotW0 = Math.max(160, svgW - marginLR.l - marginLR.r);
+  const legendFont = Math.max(17, fontSize * 0.62);
+  const legendRows = showLegend && traces.length ? buildLineLegendLayout(traces, plotW0, legendFont) : [];
+  const legendRowH = Math.max(28, legendFont*1.55);
+  const legendH = legendRows.length ? Math.max(54, legendRows.length*legendRowH + 22) : 16;
+  const margin = {l: marginLR.l, r: marginLR.r, t: 36 + legendH, b: 116};
+  const plotW = Math.max(160, svgW - margin.l - margin.r);
+  const plotH = Math.max(160, svgH - margin.t - margin.b);
+  const sx = x => margin.l + (x-xMin)/(xMax-xMin)*plotW;
+  const sy = y => margin.t + (yMax-y)/(yMax-yMin)*plotH;
+  const plotBottom = margin.t + plotH;
+  const tickIn = Math.max(13, Math.min(28, fontSize*0.48));
+  const parts=[];
+  parts.push(`<svg xmlns="${ns}" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" role="img" data-mode="mh" data-x-min="${xMin}" data-x-max="${xMax}" data-y-min="${yMin}" data-y-max="${yMax}" data-plot-left="${margin.l}" data-plot-top="${margin.t}" data-plot-width="${plotW}" data-plot-height="${plotH}">`);
+  parts.push(`<rect width="100%" height="100%" fill="white"/>`);
+  parts.push(`<style>text{font-family:'Times New Roman','Yu Mincho',serif;fill:#000}.axis{stroke:#000;stroke-width:2;fill:none}.tick{stroke:#000;stroke-width:2}.mhTrace{fill:none;stroke-linecap:round;stroke-linejoin:round}.zeroLine{stroke:#000;stroke-width:1.4}</style>`);
+  parts.push(`<defs><clipPath id="mhPlotClip"><rect x="${margin.l}" y="${margin.t}" width="${plotW}" height="${plotH}"/></clipPath></defs>`);
+  if(showLegend && legendRows.length){
+    const y0 = Math.max(26, margin.t - legendH + 28);
+    legendRows.forEach((row, ri)=>{
+      let xCur = margin.l + 8;
+      const y = y0 + ri*legendRowH;
+      row.forEach(item=>{
+        const t = item.trace;
+        parts.push(`<line x1="${xCur}" y1="${y}" x2="${xCur+60}" y2="${y}" stroke="${esc(t.color)}" stroke-width="${Math.max(3,lineWidth*1.8)}"/>`);
+        parts.push(svgRichText(xCur+78, y+legendFont*0.35, item.label, {fontSize:legendFont, anchor:'start'}));
+        xCur += item.itemW;
+      });
+    });
+  }
+  parts.push(`<rect class="axis" x="${margin.l}" y="${margin.t}" width="${plotW}" height="${plotH}"/>`);
+  const xTicks = niceTicks(xMin,xMax,6);
+  const yTicks = niceTicks(yMin,yMax,5);
+  xTicks.forEach(x=>{
+    const X=sx(x);
+    parts.push(`<line class="tick" x1="${X}" y1="${plotBottom}" x2="${X}" y2="${plotBottom-tickIn}"/>`);
+    if(mirrorTicks) parts.push(`<line class="tick" x1="${X}" y1="${margin.t}" x2="${X}" y2="${margin.t+tickIn}"/>`);
+    parts.push(`<text x="${X}" y="${plotBottom+48}" font-size="${fontSize*0.98}" text-anchor="middle">${fmtTick(x)}</text>`);
+  });
+  yTicks.forEach(y=>{
+    const Y=sy(y);
+    parts.push(`<line class="tick" x1="${margin.l}" y1="${Y}" x2="${margin.l+tickIn}" y2="${Y}"/>`);
+    if(mirrorTicks) parts.push(`<line class="tick" x1="${margin.l+plotW}" y1="${Y}" x2="${margin.l+plotW-tickIn}" y2="${Y}"/>`);
+    parts.push(`<text x="${margin.l-18}" y="${Y+fontSize*0.30}" font-size="${fontSize*0.92}" text-anchor="end">${fmtTick(y)}</text>`);
+  });
+  if(showZero){
+    if(xMin < 0 && xMax > 0){ const X=sx(0); parts.push(`<line class="zeroLine" x1="${X}" y1="${margin.t}" x2="${X}" y2="${plotBottom}"/>`); }
+    if(yMin < 0 && yMax > 0){ const Y=sy(0); parts.push(`<line class="zeroLine" x1="${margin.l}" y1="${Y}" x2="${margin.l+plotW}" y2="${Y}"/>`); }
+  }
+  parts.push(svgRichText(margin.l + plotW/2, plotBottom + 90, $('mhXAxisLabel')?.value || 'Magnetic field (kOe)', {fontSize:fontSize*1.00, anchor:'middle'}));
+  parts.push(`<g transform="translate(${Math.max(58, margin.l*0.42)},${margin.t+plotH/2}) rotate(-90)">${svgRichText(0,0,$('mhYAxisLabel')?.value || 'Magnetization (emu/g)', {fontSize:fontSize*1.00, anchor:'middle'}).replace(/^<text /,'<text ')}</g>`);
+  traces.forEach(t=>{
+    const pts = mhPlotPoints(t).filter(p => p.x >= Math.min(xMin,xMax) && p.x <= Math.max(xMin,xMax));
+    if(pts.length < 2) return;
+    const d = pts.map((p,i)=>`${i?'L':'M'}${sx(p.x).toFixed(2)},${sy(p.y).toFixed(2)}`).join(' ');
+    parts.push(`<path class="mhTrace" clip-path="url(#mhPlotClip)" d="${d}" stroke="${esc(t.color)}" stroke-width="${lineWidth}"/>`);
+  });
+  parts.push('</svg>');
+  return {svg: parts.join('\n'), meta:{count:traces.length, points:traces.reduce((s,t)=>s+(t.points||[]).length,0), xMin,xMax,yMin,yMax}};
+}
+function renderMHOutputOnly(){
+  ensureMHState();
+  const result = makeMHSvg();
+  state.lastSvgText = result.svg;
+  $('svgHost').innerHTML = result.svg;
+  const tb = document.querySelector('.tables');
+  if(tb) tb.style.display = 'none';
+  const svg = $('svgHost').querySelector('svg');
+  if(svg) attachMHZoomHandlers(svg);
+  $('status').innerHTML = `<span class="pill">MH ${result.meta.count}件 / ${result.meta.points.toLocaleString()}点</span><span class="pill">H: ${result.meta.xMin.toFixed(2)}–${result.meta.xMax.toFixed(2)} kOe</span><span class="pill">M: ${result.meta.yMin.toFixed(2)}–${result.meta.yMax.toFixed(2)}</span>${state.mhZoomView ? '<br><span class="pill">MHズーム中</span>' : ''}`;
+}
+function attachMHZoomHandlers(svg){
+  const xMin = Number(svg.dataset.xMin), xMax = Number(svg.dataset.xMax);
+  const yMin = Number(svg.dataset.yMin), yMax = Number(svg.dataset.yMax);
+  const left = Number(svg.dataset.plotLeft), top = Number(svg.dataset.plotTop);
+  const width = Number(svg.dataset.plotWidth), height = Number(svg.dataset.plotHeight);
+  if(![xMin,xMax,yMin,yMax,left,top,width,height].every(Number.isFinite)) return;
+  svg.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    if(state.mhZoomHistory.length){
+      const prev = state.mhZoomHistory.pop();
+      state.mhZoomView = prev && prev.zoomView ? prev.zoomView : null;
+      render();
+    } else if(state.mhZoomView){
+      state.mhZoomView = null; render();
+    }
+  });
+  let start=null, rect=null;
+  function pt(e){
+    const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
+    return p.matrixTransform(svg.getScreenCTM().inverse());
+  }
+  function setRect(a,b){
+    if(!rect){ rect = document.createElementNS(ns,'rect'); rect.setAttribute('fill','rgba(37,99,235,.10)'); rect.setAttribute('stroke','#2563eb'); rect.setAttribute('stroke-width','1.4'); rect.setAttribute('stroke-dasharray','5 4'); svg.appendChild(rect); }
+    const x=Math.min(a.x,b.x), y=Math.min(a.y,b.y), w=Math.abs(a.x-b.x), h=Math.abs(a.y-b.y);
+    rect.setAttribute('x',x); rect.setAttribute('y',y); rect.setAttribute('width',w); rect.setAttribute('height',h);
+  }
+  svg.addEventListener('pointerdown', e => {
+    if(e.button !== 0) return;
+    const p = pt(e);
+    if(p.x < left || p.x > left+width || p.y < top || p.y > top+height) return;
+    start = {x:clamp(p.x,left,left+width), y:clamp(p.y,top,top+height)};
+    svg.setPointerCapture?.(e.pointerId);
+  });
+  svg.addEventListener('pointermove', e => {
+    if(!start) return;
+    const p = pt(e);
+    const now = {x:clamp(p.x,left,left+width), y:clamp(p.y,top,top+height)};
+    setRect(start, now);
+  });
+  svg.addEventListener('pointerup', e => {
+    if(!start || !rect){ start=null; return; }
+    const p = pt(e);
+    const p1 = {x:clamp(p.x,left,left+width), y:clamp(p.y,top,top+height)};
+    const w=Math.abs(p1.x-start.x), h=Math.abs(p1.y-start.y);
+    rect.remove(); rect=null;
+    const p0=start; start=null;
+    if(w < 10 || h < 10) return;
+    const xa = xMin + (Math.min(p0.x,p1.x)-left)/width*(xMax-xMin);
+    const xb = xMin + (Math.max(p0.x,p1.x)-left)/width*(xMax-xMin);
+    const yt = yMax - (Math.min(p0.y,p1.y)-top)/height*(yMax-yMin);
+    const yb = yMax - (Math.max(p0.y,p1.y)-top)/height*(yMax-yMin);
+    recordUndoPoint();
+    state.mhZoomHistory.push({zoomView: state.mhZoomView ? {...state.mhZoomView} : null});
+    state.mhZoomView = {xMin:Math.min(xa,xb), xMax:Math.max(xa,xb), yMin:Math.min(yb,yt), yMax:Math.max(yb,yt)};
+    render();
+  });
+}
+
+
+function parseMT(text, filename){
+  const lines = String(text || '').replace(/\r/g,'').split('\n');
+  let sampleName = '';
+  let mass = NaN;
+  let headerIndex = -1;
+  let tIdx = -1, mIdx = -1, hIdx = -1;
+  for(let i=0;i<lines.length;i++){
+    const raw = lines[i];
+    const low = raw.toLowerCase();
+    if(low.startsWith('sample name')){ const a = splitCSVLine(raw); sampleName = (a[1] || '').trim(); }
+    if(low.startsWith('sample weight')){ const a = splitCSVLine(raw); mass = Number(a[1]); }
+    const cells = splitCSVLine(raw);
+    const lows = cells.map(c => c.toLowerCase().replace(/\s+/g,'').replace('ﾟ','°'));
+    const ti = lows.findIndex(c => c === 't' || c.startsWith('temp') || c.includes('temperature'));
+    const mi = lows.findIndex(c => c === 'm' || c === 'm(emu)' || c === 'm(emu/g)' || c.startsWith('magnetization'));
+    const hi = lows.findIndex(c => c === 'h' || c === 'h(oe)' || c === 'h(koe)' || c.startsWith('magneticfield'));
+    if(ti >= 0 && mi >= 0 && ti !== mi){ headerIndex = i; tIdx = ti; mIdx = mi; hIdx = hi; break; }
+  }
+  let rawPoints = [];
+  if(headerIndex >= 0){
+    for(let i=headerIndex+1;i<lines.length;i++){
+      const cells = splitCSVLine(lines[i]);
+      const temp = Number(cells[tIdx]);
+      const m = Number(cells[mIdx]);
+      const h = hIdx >= 0 ? Number(cells[hIdx]) : NaN;
+      if(Number.isFinite(temp) && Number.isFinite(m)) rawPoints.push({temp, mEmu:m, hOe:Number.isFinite(h)?h:null});
+    }
+  } else {
+    // Fallback: accept simple numeric tables like Temp, M or Temp, H, M.
+    for(const line of lines){
+      const cells = splitCSVLine(line);
+      const nums = cells.map(c => Number(c)).filter(Number.isFinite);
+      if(nums.length >= 2){
+        const temp = nums[0];
+        const m = nums.length >= 3 ? nums[2] : nums[1];
+        const h = nums.length >= 3 ? nums[1] : null;
+        if(Number.isFinite(temp) && Number.isFinite(m)) rawPoints.push({temp, mEmu:m, hOe:h});
+      }
+    }
+  }
+  rawPoints = rawPoints.filter(p => Number.isFinite(p.temp) && Number.isFinite(p.mEmu)).sort((a,b)=>a.temp-b.temp);
+  const name = sampleName || filename.replace(/\.[^.]+$/,'');
+  return {id: uniqueId('mt'), name, rawName: filename, displayName: name, visible: true, color: palette[state.mtTraces.length % palette.length], mass: Number.isFinite(mass) && mass > 0 ? mass : null, points: rawPoints, tcAccepted: []};
+}
+function ensureMTState(){
+  if(!Array.isArray(state.mtTraces)) state.mtTraces = [];
+  state.mtTraces.forEach((t,i)=>{
+    if(!t.id) t.id = uniqueId('mt');
+    if(!t.displayName) t.displayName = t.name || t.rawName || `MT ${i+1}`;
+    if(!t.color) t.color = palette[i % palette.length];
+    if(!Array.isArray(t.points)) t.points = [];
+    if(t.tcAccepted && !Array.isArray(t.tcAccepted)) t.tcAccepted = Number.isFinite(Number(t.tcAccepted.temp)) ? [t.tcAccepted] : [];
+    if(!Array.isArray(t.tcAccepted)) t.tcAccepted = [];
+    t.tcAccepted = t.tcAccepted.filter(a => Number.isFinite(Number(a.temp))).map(a => ({temp:Number(a.temp)}));
+  });
+}
+function mtDisplayName(t){ return (t.displayName || t.name || t.rawName || '').trim(); }
+function mtMassForTrace(t){
+  const mode = $('mtMassMode')?.value || 'raw';
+  if(mode === 'raw' || mode === 'norm') return null;
+  if(mode === 'manual'){
+    const m = num($('mtManualMass')?.value, NaN);
+    return Number.isFinite(m) && m > 0 ? m : null;
+  }
+  const m = Number(t.mass);
+  return Number.isFinite(m) && m > 0 ? m : null;
+}
+function mtPlotPoints(t){
+  const mass = mtMassForTrace(t);
+  const mode = $('mtMassMode')?.value || 'raw';
+  let rawY = (t.points || []).map(p => mass ? p.mEmu / mass : p.mEmu);
+  if(mode === 'norm' && rawY.length){
+    const mn = Math.min(...rawY), mx = Math.max(...rawY), span = Math.max(1e-12, mx-mn);
+    rawY = rawY.map(v => (v-mn)/span*100);
+  }
+  const ys = movingAverage(rawY, num($('mtSmooth')?.value,5));
+  const step = Math.max(1, Math.floor(num($('mtPointStep')?.value,1)));
+  const pts = [];
+  for(let i=0;i<(t.points||[]).length;i+=step){
+    const p = t.points[i];
+    const y = ys[i];
+    const x = p.temp;
+    if(Number.isFinite(x) && Number.isFinite(y)) pts.push({x,y});
+  }
+  pts.sort((a,b)=>a.x-b.x);
+  return pts;
+}
+function derivativePoints(points){
+  const out=[];
+  if(!points || points.length < 3) return out;
+  for(let i=1;i<points.length-1;i++){
+    const a=points[i-1], b=points[i+1];
+    const dx = b.x - a.x;
+    if(Math.abs(dx) < 1e-12) continue;
+    out.push({x: points[i].x, y: (b.y-a.y)/dx});
+  }
+  return out;
+}
+function mtDerivatives(t){
+  const base = mtPlotPoints(t);
+  const dSmooth = Math.max(0, Math.floor(num($('mtSmooth')?.value,5)));
+  let d1 = derivativePoints(base);
+  if(dSmooth > 1){ const ys = movingAverage(d1.map(p=>p.y), dSmooth); d1 = d1.map((p,i)=>({x:p.x,y:ys[i]})); }
+  let d2 = derivativePoints(d1);
+  if(dSmooth > 1){ const ys = movingAverage(d2.map(p=>p.y), dSmooth); d2 = d2.map((p,i)=>({x:p.x,y:ys[i]})); }
+  return {base,d1,d2};
+}
+function mtTcCandidates(t){
+  const {d2} = mtDerivatives(t);
+  const tMin = num($('mtTcMin')?.value, 50), tMax = num($('mtTcMax')?.value, 550);
+  const lim = Math.max(1, Math.floor(num($('mtTcCandidateCount')?.value,3)));
+  const inRange = d2.filter(p => p.x >= Math.min(tMin,tMax) && p.x <= Math.max(tMin,tMax) && Number.isFinite(p.y));
+  if(!inRange.length) return [];
+  const local=[];
+  for(let i=1;i<inRange.length-1;i++){
+    if(inRange[i].y >= inRange[i-1].y && inRange[i].y >= inRange[i+1].y) local.push(inRange[i]);
+  }
+  const pool = local.length ? local : inRange;
+  const sorted = [...pool].sort((a,b)=>b.y-a.y);
+  const picked=[];
+  const minGap = Math.max(15, (Math.max(tMin,tMax)-Math.min(tMin,tMax))*0.04);
+  for(const p of sorted){
+    if(picked.every(q => Math.abs(q.x-p.x) >= minGap)) picked.push(p);
+    if(picked.length >= lim) break;
+  }
+  return picked.map(p => ({temp:p.x, score:p.y}));
+}
+async function loadMTFiles(){
+  const files = [...($('mtFiles')?.files || [])];
+  if(!files.length){ render(); return; }
+  recordUndoPoint();
+  ensureMTState();
+  for(const f of files){
+    const text = await readFile(f);
+    const tr = parseMT(text, f.name);
+    if(tr.points.length) state.mtTraces.push(tr);
+  }
+  if($('graphMode')) $('graphMode').value = 'mt';
+  render();
+}
+function clearMT(){
+  recordUndoPoint();
+  state.mtTraces = [];
+  state.mtZoomView = null;
+  state.mtZoomHistory = [];
+  render();
+}
+function renderMTEditTables(){
+  ensureMTState();
+  const table = $('mtEditTable');
+  if(!table) return;
+  const body = table.querySelector('tbody');
+  body.innerHTML = state.mtTraces.map((t,i)=>{
+    const mass = Number.isFinite(Number(t.mass)) ? Number(t.mass) : '';
+    const cands = mtTcCandidates(t);
+    const acceptedTemps = Array.isArray(t.tcAccepted) ? t.tcAccepted.map(a=>Number(a.temp)).filter(Number.isFinite) : [];
+    const selected = acceptedTemps.length ? acceptedTemps[acceptedTemps.length-1] : (cands[0]?.temp ?? '');
+    const opts = cands.length ? cands.map((c,ci)=>`<option value="${c.temp}" ${Math.abs(Number(selected)-c.temp)<1e-6?'selected':''}>${ci+1}: ${c.temp.toFixed(1)} ℃</option>`).join('') : '<option value="">候補なし</option>';
+    const accepted = acceptedTemps.length ? acceptedTemps.map(v=>`${v.toFixed(1)} ℃`).join(', ') : '未採用';
+    return `<tr>
+      <td class="center"><input type="checkbox" data-mt-type="use" data-i="${i}" ${t.visible!==false?'checked':''}></td>
+      <td class="traceTools"><button type="button" data-mt-type="up" data-i="${i}">↑</button><button type="button" data-mt-type="down" data-i="${i}">↓</button><button type="button" data-mt-type="del" data-i="${i}">削除</button></td>
+      <td><input class="mhColor" type="color" data-mt-type="color" data-i="${i}" value="${esc(t.color)}"></td>
+      <td class="mini">${esc(t.rawName || '')}</td>
+      <td><input type="text" data-mt-type="label" data-i="${i}" value="${esc(mtDisplayName(t))}"></td>
+      <td><input type="number" data-mt-type="mass" data-i="${i}" value="${esc(mass)}" step="0.0001" min="0"></td>
+      <td><select data-mt-type="tcSelect" data-i="${i}">${opts}</select><div class="mini">採用中: ${esc(accepted)}</div></td>
+      <td class="traceTools"><button type="button" data-mt-type="adoptTc" data-i="${i}">採用</button><button type="button" data-mt-type="clearTc" data-i="${i}">解除</button></td>
+      <td class="right">${(t.points||[]).length.toLocaleString()}</td>
+    </tr>`;
+  }).join('');
+}
+function handleMTEditEvent(e){
+  const t = e.target;
+  const type = t.dataset.mtType;
+  const i = Number(t.dataset.i);
+  if(!type || !Number.isFinite(i) || !state.mtTraces[i]) return;
+  commitEditStartSnapshot();
+  if(e.type === 'click' && !['up','down','del','adoptTc','clearTc'].includes(type)) return;
+  if(type === 'up' || type === 'down'){
+    const j = type === 'up' ? i-1 : i+1;
+    if(j < 0 || j >= state.mtTraces.length) return;
+    const [item] = state.mtTraces.splice(i,1);
+    state.mtTraces.splice(j,0,item);
+    render(); return;
+  }
+  if(type === 'del'){ state.mtTraces.splice(i,1); render(); return; }
+  if(type === 'adoptTc'){
+    const sel = document.querySelector(`select[data-mt-type="tcSelect"][data-i="${i}"]`);
+    const temp = Number(sel?.value);
+    if(Number.isFinite(temp)){
+      if(!Array.isArray(state.mtTraces[i].tcAccepted)) state.mtTraces[i].tcAccepted = [];
+      if(!state.mtTraces[i].tcAccepted.some(a => Math.abs(Number(a.temp)-temp) < 1e-6)) state.mtTraces[i].tcAccepted.push({temp});
+    }
+    render(); return;
+  }
+  if(type === 'clearTc'){ state.mtTraces[i].tcAccepted = []; render(); return; }
+  if(type === 'use') state.mtTraces[i].visible = t.checked;
+  if(type === 'color') state.mtTraces[i].color = t.value;
+  if(type === 'label') state.mtTraces[i].displayName = t.value;
+  if(type === 'mass'){
+    const m = Number(t.value);
+    state.mtTraces[i].mass = Number.isFinite(m) && m > 0 ? m : null;
+  }
+  renderMTOutputOnly();
+}
+function scaledAuxPoints(points, baseline, amp){
+  if(!points.length) return [];
+  const maxAbs = Math.max(1e-12, ...points.map(p=>Math.abs(p.y)).filter(Number.isFinite));
+  return points.map(p => ({x:p.x, y:baseline + p.y/maxAbs*amp, raw:p.y}));
+}
+function makeMTSvg(){
+  ensureMTState();
+  const traces = state.mtTraces.filter(t => t.visible !== false && (t.points||[]).length);
+  const svgW = num($('svgW')?.value,960), svgH = num($('svgH')?.value,760);
+  const fontSize = num($('fontSize')?.value,34), lineWidth = num($('lineWidth')?.value,2.0);
+  const showLegend = $('showLegend')?.checked ?? true;
+  const showZero = $('mtShowZero')?.checked ?? false;
+  const mirrorTicks = $('mtMirrorTicks')?.checked ?? true;
+  const showD1 = $('mtShowD1')?.checked ?? false;
+  const showD2 = $('mtShowD2')?.checked ?? false;
+  const xMinBase = num($('mtXMin')?.value,0), xMaxBase = num($('mtXMax')?.value,600);
+  let xMin = state.mtZoomView ? state.mtZoomView.xMin : xMinBase;
+  let xMax = state.mtZoomView ? state.mtZoomView.xMax : xMaxBase;
+  const baseByTrace = new Map(traces.map(t => [t.id, mtPlotPoints(t)]));
+  const allPts = [...baseByTrace.values()].flat().filter(p => p.x >= Math.min(xMin,xMax) && p.x <= Math.max(xMin,xMax));
+  let yMinBase = num($('mtYMin')?.value,0), yMaxBase = num($('mtYMax')?.value,1);
+  if(($('mtAutoY')?.value || 'auto') === 'auto' && allPts.length){
+    const ys = allPts.map(p=>p.y);
+    yMinBase = Math.min(...ys); yMaxBase = Math.max(...ys);
+    const pad = Math.max(1e-9, (yMaxBase-yMinBase)*0.08);
+    yMinBase -= pad; yMaxBase += pad;
+  }
+  let yMin = state.mtZoomView ? state.mtZoomView.yMin : yMinBase;
+  let yMax = state.mtZoomView ? state.mtZoomView.yMax : yMaxBase;
+  if(xMin === xMax){ xMin -= 1; xMax += 1; }
+  if(yMin === yMax){ yMin -= 1; yMax += 1; }
+  const spanY = yMax-yMin;
+  const marginLR = {l:170, r:64};
+  const plotW0 = Math.max(160, svgW - marginLR.l - marginLR.r);
+  const legendFont = Math.max(17, fontSize * 0.62);
+  const legendItems = traces.map(t => ({trace:t, label:mtDisplayName(t), itemW:Math.min(plotW0, 70 + mtDisplayName(t).length * legendFont * 0.52), color:t.color}));
+  if(showD1) legendItems.push({trace:null,label:'dM/dT',itemW:135,color:'#1d4ed8'});
+  if(showD2) legendItems.push({trace:null,label:'d²M/dT²',itemW:165,color:'#dc2626'});
+  const rows=[]; let row=[]; let used=0;
+  if(showLegend){ legendItems.forEach(item=>{ if(row.length && used + item.itemW > plotW0){ rows.push(row); row=[]; used=0; } row.push(item); used += item.itemW; }); if(row.length) rows.push(row); }
+  const legendRowH = Math.max(28, legendFont*1.55);
+  const legendH = rows.length ? Math.max(54, rows.length*legendRowH + 22) : 16;
+  const margin = {l: marginLR.l, r: marginLR.r, t: 36 + legendH, b: 116};
+  const plotW = Math.max(160, svgW - margin.l - margin.r);
+  const plotH = Math.max(160, svgH - margin.t - margin.b);
+  const sx = x => margin.l + (x-xMin)/(xMax-xMin)*plotW;
+  const sy = y => margin.t + (yMax-y)/(yMax-yMin)*plotH;
+  const plotBottom = margin.t + plotH;
+  const tickIn = Math.max(13, Math.min(28, fontSize*0.48));
+  const dAmp = spanY * Math.max(0.01, num($('mtDerivativeScale')?.value,18)/100);
+  const d1Base = yMin + spanY*0.20;
+  const d2Base = yMin + spanY*0.34;
+  const parts=[];
+  parts.push(`<svg xmlns="${ns}" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" role="img" data-mode="mt" data-x-min="${xMin}" data-x-max="${xMax}" data-y-min="${yMin}" data-y-max="${yMax}" data-plot-left="${margin.l}" data-plot-top="${margin.t}" data-plot-width="${plotW}" data-plot-height="${plotH}">`);
+  parts.push(`<rect width="100%" height="100%" fill="white"/>`);
+  parts.push(`<style>text{font-family:'Times New Roman','Yu Mincho',serif;fill:#000}.axis{stroke:#000;stroke-width:2;fill:none}.tick{stroke:#000;stroke-width:2}.mtTrace{fill:none;stroke-linecap:round;stroke-linejoin:round}.zeroLine{stroke:#000;stroke-width:1.4}.tcBox{fill:white;stroke:#000;stroke-width:1.6}.tcArrow{stroke:#000;stroke-width:1.5;fill:none}</style>`);
+  parts.push(`<defs><clipPath id="mtPlotClip"><rect x="${margin.l}" y="${margin.t}" width="${plotW}" height="${plotH}"/></clipPath><marker id="tcArrowHead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#000"/></marker></defs>`);
+  if(showLegend && rows.length){
+    const y0 = Math.max(26, margin.t - legendH + 28);
+    rows.forEach((row, ri)=>{ let xCur = margin.l + 8; const y = y0 + ri*legendRowH; row.forEach(item=>{ parts.push(`<line x1="${xCur}" y1="${y}" x2="${xCur+60}" y2="${y}" stroke="${esc(item.color)}" stroke-width="${Math.max(3,lineWidth*1.8)}"/>`); parts.push(svgRichText(xCur+78, y+legendFont*0.35, item.label, {fontSize:legendFont, anchor:'start'})); xCur += item.itemW; }); });
+  }
+  parts.push(`<rect class="axis" x="${margin.l}" y="${margin.t}" width="${plotW}" height="${plotH}"/>`);
+  niceTicks(xMin,xMax,6).forEach(x=>{ const X=sx(x); parts.push(`<line class="tick" x1="${X}" y1="${plotBottom}" x2="${X}" y2="${plotBottom-tickIn}"/>`); if(mirrorTicks) parts.push(`<line class="tick" x1="${X}" y1="${margin.t}" x2="${X}" y2="${margin.t+tickIn}"/>`); parts.push(`<text x="${X}" y="${plotBottom+48}" font-size="${fontSize*0.98}" text-anchor="middle">${fmtTick(x)}</text>`); });
+  niceTicks(yMin,yMax,5).forEach(y=>{ const Y=sy(y); parts.push(`<line class="tick" x1="${margin.l}" y1="${Y}" x2="${margin.l+tickIn}" y2="${Y}"/>`); if(mirrorTicks) parts.push(`<line class="tick" x1="${margin.l+plotW}" y1="${Y}" x2="${margin.l+plotW-tickIn}" y2="${Y}"/>`); if(($('showYTicks')?.checked ?? false)) parts.push(`<text x="${margin.l-18}" y="${Y+fontSize*0.30}" font-size="${fontSize*0.82}" text-anchor="end">${fmtTick(y)}</text>`); });
+  if(showZero){ if(xMin < 0 && xMax > 0){ const X=sx(0); parts.push(`<line class="zeroLine" x1="${X}" y1="${margin.t}" x2="${X}" y2="${plotBottom}"/>`); } if(yMin < 0 && yMax > 0){ const Y=sy(0); parts.push(`<line class="zeroLine" x1="${margin.l}" y1="${Y}" x2="${margin.l+plotW}" y2="${Y}"/>`); } }
+  parts.push(svgRichText(margin.l + plotW/2, plotBottom + 90, $('mtXAxisLabel')?.value || 'Temperature (°C)', {fontSize:fontSize*1.00, anchor:'middle'}));
+  parts.push(`<g transform="translate(${Math.max(58, margin.l*0.42)},${margin.t+plotH/2}) rotate(-90)">${svgRichText(0,0,$('mtYAxisLabel')?.value || 'Magnetization (arb.units)', {fontSize:fontSize*1.00, anchor:'middle'}).replace(/^<text /,'<text ')}</g>`);
+  traces.forEach((t,ti)=>{
+    const pts = (baseByTrace.get(t.id) || []).filter(p => p.x >= Math.min(xMin,xMax) && p.x <= Math.max(xMin,xMax));
+    if(pts.length >= 2){ const d = pts.map((p,i)=>`${i?'L':'M'}${sx(p.x).toFixed(2)},${sy(p.y).toFixed(2)}`).join(' '); parts.push(`<path class="mtTrace" clip-path="url(#mtPlotClip)" d="${d}" stroke="${esc(t.color)}" stroke-width="${lineWidth}"/>`); }
+    const deriv = mtDerivatives(t);
+    if(showD1){ const sp = scaledAuxPoints(deriv.d1, d1Base, dAmp).filter(p => p.x >= Math.min(xMin,xMax) && p.x <= Math.max(xMin,xMax)); if(sp.length >= 2){ const d = sp.map((p,i)=>`${i?'L':'M'}${sx(p.x).toFixed(2)},${sy(p.y).toFixed(2)}`).join(' '); parts.push(`<path class="mtTrace" clip-path="url(#mtPlotClip)" d="${d}" stroke="#1d4ed8" stroke-width="${Math.max(1,lineWidth*0.85)}" opacity="${traces.length>1?0.75:1}"/>`); } }
+    if(showD2){ const sp = scaledAuxPoints(deriv.d2, d2Base, dAmp).filter(p => p.x >= Math.min(xMin,xMax) && p.x <= Math.max(xMin,xMax)); if(sp.length >= 2){ const d = sp.map((p,i)=>`${i?'L':'M'}${sx(p.x).toFixed(2)},${sy(p.y).toFixed(2)}`).join(' '); parts.push(`<path class="mtTrace" clip-path="url(#mtPlotClip)" d="${d}" stroke="#dc2626" stroke-width="${Math.max(1,lineWidth*0.85)}" opacity="${traces.length>1?0.75:1}"/>`); } }
+    const tcList = Array.isArray(t.tcAccepted) ? t.tcAccepted.map(a=>Number(a.temp)).filter(Number.isFinite) : [];
+    tcList.forEach((tc, ai)=>{
+      if(tc >= Math.min(xMin,xMax) && tc <= Math.max(xMin,xMax) && pts.length){
+        const y = interpY(pts, tc);
+        const X = sx(tc), Y = sy(y);
+        const boxW = Math.max(128, fontSize*3.55), boxH = Math.max(34, fontSize*0.92);
+        const bx = clamp(X - boxW - 34 + ((ti+ai)%2)*74, margin.l+8, margin.l+plotW-boxW-8);
+        const by = clamp(Y - boxH - 54 - ((ti+ai)%4)*22, margin.t+12, margin.t+plotH-boxH-12);
+        parts.push(`<path class="tcArrow" d="M ${bx+boxW*0.86} ${by+boxH} L ${X} ${Y}" marker-end="url(#tcArrowHead)"/>`);
+        parts.push(`<rect class="tcBox" x="${bx}" y="${by}" width="${boxW}" height="${boxH}"/>`);
+        parts.push(svgRichText(bx+12, by+boxH*0.68, `T_C = ${Math.round(tc)}°C`, {fontSize:fontSize*0.48, anchor:'start'}));
+      }
+    });
+  });
+  parts.push('</svg>');
+  return {svg: parts.join('\n'), meta:{count:traces.length, points:traces.reduce((s,t)=>s+(t.points||[]).length,0), xMin,xMax,yMin,yMax}};
+}
+function renderMTOutputOnly(){
+  ensureMTState();
+  const result = makeMTSvg();
+  state.lastSvgText = result.svg;
+  $('svgHost').innerHTML = result.svg;
+  const tb = document.querySelector('.tables');
+  if(tb) tb.style.display = 'none';
+  const svg = $('svgHost').querySelector('svg');
+  if(svg) attachMTZoomHandlers(svg);
+  const accepted = state.mtTraces.map(t => {
+    const vals = Array.isArray(t.tcAccepted) ? t.tcAccepted.map(a=>Number(a.temp)).filter(Number.isFinite) : [];
+    return vals.length ? `${esc(mtDisplayName(t))}: ${vals.map(v=>v.toFixed(1)).join(', ')} ℃` : '';
+  }).filter(Boolean).join(' / ');
+  $('status').innerHTML = `<span class="pill">MT ${result.meta.count}件 / ${result.meta.points.toLocaleString()}点</span><span class="pill">T: ${result.meta.xMin.toFixed(1)}–${result.meta.xMax.toFixed(1)} ℃</span><span class="pill">M: ${result.meta.yMin.toFixed(4)}–${result.meta.yMax.toFixed(4)}</span>${state.mtZoomView ? '<br><span class="pill">MTズーム中</span>' : ''}${accepted ? `<br><span class="pill">採用T_C ${accepted}</span>` : ''}`;
+}
+function attachMTZoomHandlers(svg){
+  const xMin = Number(svg.dataset.xMin), xMax = Number(svg.dataset.xMax);
+  const yMin = Number(svg.dataset.yMin), yMax = Number(svg.dataset.yMax);
+  const left = Number(svg.dataset.plotLeft), top = Number(svg.dataset.plotTop);
+  const width = Number(svg.dataset.plotWidth), height = Number(svg.dataset.plotHeight);
+  if(![xMin,xMax,yMin,yMax,left,top,width,height].every(Number.isFinite)) return;
+  svg.addEventListener('contextmenu', e => { e.preventDefault(); if(state.mtZoomHistory.length){ const prev = state.mtZoomHistory.pop(); state.mtZoomView = prev && prev.zoomView ? prev.zoomView : null; render(); } else if(state.mtZoomView){ state.mtZoomView = null; render(); } });
+  let start=null, rect=null;
+  function pt(e){ const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); }
+  function setRect(a,b){ if(!rect){ rect = document.createElementNS(ns,'rect'); rect.setAttribute('fill','rgba(37,99,235,.10)'); rect.setAttribute('stroke','#2563eb'); rect.setAttribute('stroke-width','1.4'); rect.setAttribute('stroke-dasharray','5 4'); svg.appendChild(rect); } const x=Math.min(a.x,b.x), y=Math.min(a.y,b.y), w=Math.abs(a.x-b.x), h=Math.abs(a.y-b.y); rect.setAttribute('x',x); rect.setAttribute('y',y); rect.setAttribute('width',w); rect.setAttribute('height',h); }
+  svg.addEventListener('pointerdown', e => { if(e.button !== 0) return; const p = pt(e); if(p.x < left || p.x > left+width || p.y < top || p.y > top+height) return; start = {x:clamp(p.x,left,left+width), y:clamp(p.y,top,top+height)}; svg.setPointerCapture?.(e.pointerId); });
+  svg.addEventListener('pointermove', e => { if(!start) return; const p = pt(e); const now = {x:clamp(p.x,left,left+width), y:clamp(p.y,top,top+height)}; setRect(start, now); });
+  svg.addEventListener('pointerup', e => { if(!start || !rect){ start=null; return; } const p = pt(e); const p1 = {x:clamp(p.x,left,left+width), y:clamp(p.y,top,top+height)}; const w=Math.abs(p1.x-start.x), h=Math.abs(p1.y-start.y); rect.remove(); rect=null; const p0=start; start=null; if(w < 10 || h < 10) return; const xa = xMin + (Math.min(p0.x,p1.x)-left)/width*(xMax-xMin); const xb = xMin + (Math.max(p0.x,p1.x)-left)/width*(xMax-xMin); const yt = yMax - (Math.min(p0.y,p1.y)-top)/height*(yMax-yMin); const yb = yMax - (Math.max(p0.y,p1.y)-top)/height*(yMax-yMin); recordUndoPoint(); state.mtZoomHistory.push({zoomView: state.mtZoomView ? {...state.mtZoomView} : null}); state.mtZoomView = {xMin:Math.min(xa,xb), xMax:Math.max(xa,xb), yMin:Math.min(yb,yt), yMax:Math.max(yb,yt)}; render(); });
+}
+
+function buildBuiltinRefs(){
+  return BUILTIN_REFERENCES.map((item, i) => parseReference(item.text, item.name, item.color || palette[i % palette.length], {
+    displayName: simplifyPhaseLabel(item.label || item.name),
+    visible: item.visible ?? false,
+    marker: item.marker || suggestMarker(item.label || item.name),
+    builtin: true
+  })).filter(r => r.peaks.length);
+}
+function restoreBuiltinRefs(keepAdded=true){
+  const added = keepAdded ? state.refs.filter(r => !r.builtin) : [];
+  state.refs = [...buildBuiltinRefs(), ...added];
+  render();
+}
+function addReferences(refs){
+  for(const ref of refs){
+    const key = `${ref.rawName}|${ref.displayName || ref.name}`;
+    const exists = state.refs.some(r => `${r.rawName}|${r.displayName || r.name}` === key);
+    if(!exists) state.refs.push(ref);
+  }
+}
+
+async function loadFiles(){
+  const mf = [...$('measFiles').files];
+  const rf = [...$('refFiles').files];
+  if(!mf.length && !rf.length){ render(); return; }
+  recordUndoPoint();
+  if($('graphMode')) $('graphMode').value = 'xrd';
+  // 測定データは消さずに追加する。消したいときは「測定クリア」を使う。
+  const loadedRefs = [];
+  for(const f of mf){
+    const text = await readFile(f);
+    const tr = parseMeasured(text, f.name);
+    if(tr.points.length) state.measured.push(tr);
+  }
+  for(let i=0;i<rf.length;i++){
+    const f = rf[i];
+    const text = await readFile(f);
+    const ref = parseReference(text, f.name, palette[(state.refs.length + i) % palette.length], {visible: true});
+    if(ref.peaks.length) loadedRefs.push(ref);
+  }
+  addReferences(loadedRefs);
+  render();
+}
+
+function useDemo(){
+  recordUndoPoint();
+  const xs = [];
+  for(let x=20; x<=70.0001; x+=0.04) xs.push(x);
+  const qsRef = [24.907,25.510,30.168,30.463,30.797,35.656,39.893,53.751,57.677,62.681,63.348];
+  const minorRef = [28.6,33.1,36.9,49.5,54.8,57.0];
+  function gauss(x,mu,a,w){ return a*Math.exp(-0.5*((x-mu)/w)**2); }
+  state.measured = [-0.1,0,0.2,0.5,-0.1,0].map((val,i)=>{
+    const pts = xs.map(x=>{
+      let y = 8 + 1.2*Math.sin(x*.8 + i*0.3);
+      qsRef.forEach((mu,j)=> y += gauss(x, mu + (i-2)*0.012, [8,12,52,100,18,65,32,58,30,34,29][j], 0.055+0.02*(j%3)) );
+      minorRef.forEach((mu,j)=> y += gauss(x, mu + (i-2)*0.01, [8,10,7,5,6,4][j], 0.10) );
+      y += (Math.random() - 0.5) * 1.1;
+      return {x,y};
+    });
+    return {name:`demo_${i+1}`, rawName:`sample_${i+1}.xy`, displayName:`x = ${val}`, visible:true, points:pts, norm:[]};
+  });
+  state.refs = [
+    {name:'BaSn0.9Fe5.47O11', rawName:'BaSn0.9Fe5.47O11.txt', displayName:'QS phase', visible:true, color:palette[0], peaks:qsRef.map((angle,i)=>({angle,intensity:[6,10,65,100,16,70,31,61,31,35,35][i], iNorm:[6,10,65,100,16,70,31,61,31,35,35][i], h:null,k:null,l:null, phase:'QS phase'}))},
+    {name:'Minor phase', rawName:'minor_phase.txt', displayName:'minor phase', visible:true, color:palette[1], peaks:minorRef.map((angle,i)=>({angle,intensity:[100,80,60,40,45,35][i], iNorm:[100,80,60,40,45,35][i], h:[1,1,2,3,2,1][i], k:[0,1,0,1,2,1][i], l:[0,0,1,0,0,2][i], phase:'minor phase'}))}
+  ];
+  render();
+}
+
+function exportSvgText(){
+  if(!state.lastSvgText) return '';
+  try{
+    const doc = new DOMParser().parseFromString(state.lastSvgText, 'image/svg+xml');
+    doc.querySelectorAll('.probeX').forEach(el => el.remove());
+    return new XMLSerializer().serializeToString(doc.documentElement);
+  }catch(_e){
+    return state.lastSvgText
+      .replace(/<[^>]*class="[^"]*probeX[^"]*"[^>]*>[^<]*<\/[^>]+>/g, '')
+      .replace(/<[^>]*class="[^"]*probeX[^"]*"[^>]*\/>/g, '');
+  }
+}
+
+function safeFileStem(name, fallback='xrd_project'){
+  const s = String(name || '').trim() || fallback;
+  return s.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_').replace(/^_+|_+$/g, '') || fallback;
+}
+
+function savePng(){
+  const svgText = exportSvgText();
+  if(!svgText) return;
+  const svg = new Blob([svgText], {type:'image/svg+xml;charset=utf-8'});
+  const url = URL.createObjectURL(svg);
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width * 2;
+    canvas.height = img.height * 2;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.scale(2,2);
+    ctx.drawImage(img,0,0);
+    URL.revokeObjectURL(url);
+    canvas.toBlob(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${currentGraphStem()}.png`;
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+    }, 'image/png');
+  };
+  img.src = url;
+}
+
+function saveCsv(){
+  if(currentMode() === 'mt'){
+    const rows = [['sample','Temperature_C','M','mass_g','source_file','series']];
+    ensureMTState();
+    state.mtTraces.filter(t => t.visible !== false).forEach(t => {
+      const base = mtPlotPoints(t);
+      const mass = mtMassForTrace(t);
+      base.forEach(p => rows.push([mtDisplayName(t), p.x.toFixed(6), p.y.toExponential(8), mass || '', t.rawName || '', 'M']));
+      if($('mtShowD1')?.checked){ mtDerivatives(t).d1.forEach(p => rows.push([mtDisplayName(t), p.x.toFixed(6), p.y.toExponential(8), mass || '', t.rawName || '', 'dM/dT'])); }
+      if($('mtShowD2')?.checked){ mtDerivatives(t).d2.forEach(p => rows.push([mtDisplayName(t), p.x.toFixed(6), p.y.toExponential(8), mass || '', t.rawName || '', 'd2M/dT2'])); }
+    });
+    downloadText(`${currentGraphStem()}_data.csv`, rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n'), 'text/csv');
+    return;
+  }
+  if(currentMode() === 'mh'){
+    const rows = [['sample','H_kOe','M','mass_g','source_file']];
+    ensureMHState();
+    state.mhTraces.filter(t => t.visible !== false).forEach(t => {
+      const pts = mhPlotPoints(t);
+      const mass = mhMassForTrace(t);
+      pts.forEach(p => rows.push([mhDisplayName(t), p.x.toFixed(6), p.y.toExponential(8), mass || '', t.rawName || '']));
+    });
+    downloadText(`${currentGraphStem()}_data.csv`, rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n'), 'text/csv');
+    return;
+  }
+  const rows = [['section','sample','phase','score_percent','main_peak','matched','expected','missing_strong','note','obs_2theta','intensity_norm','ref_2theta','delta_2theta','h','k','l','matched_peak']];
+  for(const a of state.analyses){
+    for(const c of (a.candidates || [])){
+      rows.push(['candidate', c.sample, c.phase, c.score.toFixed(3), c.main, c.matched, c.expected, c.missingStrong, c.note, '', '', '', '', '', '', '', '']);
+    }
+    for(const p of a.peaks){
+      const m = p.match;
+      rows.push(['peak', a.sample, m ? (m.ref.phaseLabel || m.ref.phase || '') : '', '', '', '', '', '', '', p.x.toFixed(5), p.y.toFixed(3), m ? m.ref.angle.toFixed(5) : '', m ? m.delta.toFixed(5) : '', m ? (m.ref.h ?? '') : '', m ? (m.ref.k ?? '') : '', m ? (m.ref.l ?? '') : '', Boolean(m)]);
+    }
+  }
+  downloadText('xrd_peak_analysis.csv', rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n'), 'text/csv');
+}
+
+
+function collectSettings(){
+  const out = {};
+  for(const id of SETTING_IDS){
+    const el = $(id);
+    if(!el) continue;
+    out[id] = el.type === 'checkbox' ? el.checked : el.value;
+  }
+  return out;
+}
+function applySettings(settings={}){
+  for(const [id, value] of Object.entries(settings)){
+    const el = $(id);
+    if(!el) continue;
+    if(el.type === 'checkbox') el.checked = Boolean(value);
+    else el.value = value;
+  }
+}
+function clonePlain(obj){
+  try { return structuredClone(obj); }
+  catch(_e){ return JSON.parse(JSON.stringify(obj)); }
+}
+function makeHistorySnapshot(){
+  return {
+    settings: collectSettings(),
+    measured: clonePlain(state.measured),
+    refs: clonePlain(state.refs),
+    mhTraces: clonePlain(state.mhTraces || []),
+    mtTraces: clonePlain(state.mtTraces || []),
+    zoomView: state.zoomView ? {...state.zoomView} : null,
+    zoomHistory: clonePlain(state.zoomHistory || []),
+    mhZoomView: state.mhZoomView ? {...state.mhZoomView} : null,
+    mhZoomHistory: clonePlain(state.mhZoomHistory || []),
+    mtZoomView: state.mtZoomView ? {...state.mtZoomView} : null,
+    mtZoomHistory: clonePlain(state.mtZoomHistory || [])
+  };
+}
+function sameSnapshot(a,b){
+  if(!a || !b) return false;
+  try { return JSON.stringify(a) === JSON.stringify(b); }
+  catch(_e){ return false; }
+}
+function pushUndoSnapshot(snapshot){
+  if(state.applyingHistory || !snapshot) return;
+  const last = state.undoStack[state.undoStack.length - 1];
+  if(sameSnapshot(last, snapshot)) return;
+  state.undoStack.push(snapshot);
+  if(state.undoStack.length > 80) state.undoStack.shift();
+  state.redoStack = [];
+  updateUndoRedoButtons();
+}
+function recordUndoPoint(){
+  pushUndoSnapshot(makeHistorySnapshot());
+}
+function commitEditStartSnapshot(){
+  if(state.editStartSnapshot){
+    pushUndoSnapshot(state.editStartSnapshot);
+    state.editStartSnapshot = null;
+  }
+}
+function restoreHistorySnapshot(snapshot){
+  if(!snapshot) return;
+  state.applyingHistory = true;
+  applySettings(snapshot.settings || {});
+  state.measured = clonePlain(snapshot.measured || []);
+  state.refs = clonePlain(snapshot.refs || []);
+  state.mhTraces = clonePlain(snapshot.mhTraces || []);
+  state.mtTraces = clonePlain(snapshot.mtTraces || []);
+  state.zoomView = snapshot.zoomView ? {...snapshot.zoomView} : null;
+  state.zoomHistory = clonePlain(snapshot.zoomHistory || []);
+  state.mhZoomView = snapshot.mhZoomView ? {...snapshot.mhZoomView} : null;
+  state.mhZoomHistory = clonePlain(snapshot.mhZoomHistory || []);
+  state.mtZoomView = snapshot.mtZoomView ? {...snapshot.mtZoomView} : null;
+  state.mtZoomHistory = clonePlain(snapshot.mtZoomHistory || []);
+  ensureRuntimeState();
+  ensureMHState();
+  ensureMTState();
+  state.applyingHistory = false;
+  render();
+  updateUndoRedoButtons();
+}
+function undoAction(){
+  if(!state.undoStack.length) return;
+  const current = makeHistorySnapshot();
+  const prev = state.undoStack.pop();
+  state.redoStack.push(current);
+  restoreHistorySnapshot(prev);
+}
+function redoAction(){
+  if(!state.redoStack.length) return;
+  const current = makeHistorySnapshot();
+  const next = state.redoStack.pop();
+  state.undoStack.push(current);
+  restoreHistorySnapshot(next);
+}
+function updateUndoRedoButtons(){
+  const u = $('undoBtn'), r = $('redoBtn');
+  if(u) u.disabled = !state.undoStack.length;
+  if(r) r.disabled = !state.redoStack.length;
+}
+function updateMarkerScaleLabel(){
+  const el = $('markerScaleLabel');
+  if(el) el.textContent = `倍率 ${num($('markerScale')?.value,0.75).toFixed(2)}x`;
+}
+
+
+function exportProject(){
+  const settings = collectSettings();
+  const name = safeFileStem(settings.projectName || $('projectName')?.value || 'xrd_project');
+  const project = {
+    app: 'XRD / MH / MT Graph Maker',
+    version: 9,
+    savedAt: new Date().toISOString(),
+    settings,
+    measured: clonePlain(state.measured),
+    refs: clonePlain(state.refs),
+    mhTraces: clonePlain(state.mhTraces || []),
+    mtTraces: clonePlain(state.mtTraces || []),
+    zoomView: state.zoomView ? {...state.zoomView} : null,
+    zoomHistory: clonePlain(state.zoomHistory || []),
+    mhZoomView: state.mhZoomView ? {...state.mhZoomView} : null,
+    mhZoomHistory: clonePlain(state.mhZoomHistory || []),
+    mtZoomView: state.mtZoomView ? {...state.mtZoomView} : null,
+    mtZoomHistory: clonePlain(state.mtZoomHistory || [])
+  };
+  downloadText(`${name}.xrdproj.json`, JSON.stringify(project, null, 2), 'application/json');
+}
+async function importProjectFile(file){
+  const project = JSON.parse(await file.text());
+  if(project.measured) state.measured = project.measured;
+  if(project.refs) state.refs = project.refs;
+  if(project.mhTraces) state.mhTraces = project.mhTraces;
+  if(project.mtTraces) state.mtTraces = project.mtTraces;
+  if(project.settings) applySettings(project.settings);
+  state.zoomView = project.zoomView ? {...project.zoomView} : null;
+  state.zoomHistory = Array.isArray(project.zoomHistory) ? project.zoomHistory : [];
+  state.mhZoomView = project.mhZoomView ? {...project.mhZoomView} : null;
+  state.mhZoomHistory = Array.isArray(project.mhZoomHistory) ? project.mhZoomHistory : [];
+  state.mtZoomView = project.mtZoomView ? {...project.mtZoomView} : null;
+  state.mtZoomHistory = Array.isArray(project.mtZoomHistory) ? project.mtZoomHistory : [];
+  state.probe = null;
+  ensureRuntimeState();
+  ensureMHState();
+  ensureMTState();
+  render();
+}
+function exportReferenceLibrary(){
+  const stem = safeFileStem(($('projectName')?.value || 'xrd_references') + '_refs', 'xrd_references');
+  const library = {
+    app: 'XRD Graph Maker reference library',
+    version: 1,
+    savedAt: new Date().toISOString(),
+    refs: clonePlain(state.refs)
+  };
+  downloadText(`${stem}.xrdrefs.json`, JSON.stringify(library, null, 2), 'application/json');
+}
+async function importReferenceLibraryFile(file){
+  const data = JSON.parse(await file.text());
+  const refs = Array.isArray(data) ? data : (Array.isArray(data.refs) ? data.refs : []);
+  if(!refs.length) throw new Error('参照データが見つかりません。');
+  const before = state.refs.length;
+  addReferences(refs.map(r => ({...r, builtin: Boolean(r.builtin)})));
+  ensureRuntimeState();
+  render();
+  const added = state.refs.length - before;
+  $('status').innerHTML += `<br><span class="pill">参照データ追加 ${added}相</span>`;
+}
+
+function currentZoomSnapshot(){
+  return {
+    xMin: state.zoomView ? state.zoomView.xMin : num($('xMin').value,20),
+    xMax: state.zoomView ? state.zoomView.xMax : num($('xMax').value,70),
+    yMin: state.zoomView ? state.zoomView.yMin : null,
+    yMax: state.zoomView ? state.zoomView.yMax : null,
+    zoomView: state.zoomView ? {...state.zoomView} : null
+  };
+}
+function resetZoom(){
+  if(currentMode() === 'mh'){ state.mhZoomView = null; state.mhZoomHistory = []; }
+  else if(currentMode() === 'mt'){ state.mtZoomView = null; state.mtZoomHistory = []; }
+  else { state.zoomView = null; state.zoomHistory = []; }
+  render();
+}
+function undoZoom(){
+  if(state.zoomHistory.length){
+    const prev = state.zoomHistory.pop();
+    state.zoomView = prev.zoomView ? {...prev.zoomView} : null;
+  } else {
+    state.zoomView = null;
+  }
+  render();
+}
+function attachZoomHandlers(){
+  const svg = $('svgHost').querySelector('svg');
+  if(!svg) return;
+  const left = Number(svg.dataset.plotLeft), top = Number(svg.dataset.plotTop);
+  const width = Number(svg.dataset.plotWidth), height = Number(svg.dataset.plotHeight);
+  const xMin = Number(svg.dataset.xMin), xMax = Number(svg.dataset.xMax);
+  const yMin = Number(svg.dataset.yMin), yMax = Number(svg.dataset.yMax);
+  if(![left, top, width, height, xMin, xMax, yMin, yMax].every(Number.isFinite)) return;
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const toSvg = (e) => {
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX; pt.y = e.clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse());
+  };
+  const inside = (p) => p.x >= left && p.x <= left + width && p.y >= top && p.y <= top + height;
+  const angleFromPoint = (p) => xMin + (clamp(p.x, left, left + width) - left) / width * (xMax - xMin);
+  const xFromAngle = (angle) => left + (angle - xMin) / (xMax - xMin) * width;
+  let probeDragging = false;
+  let start = null;
+  let rect = null;
+  function setRect(a,b){
+    const x = Math.min(a.x,b.x), y = Math.min(a.y,b.y);
+    const w = Math.abs(a.x-b.x), h = Math.abs(a.y-b.y);
+    rect.setAttribute('x', x); rect.setAttribute('y', y);
+    rect.setAttribute('width', w); rect.setAttribute('height', h);
+  }
+  svg.addEventListener('contextmenu', (e)=>{ e.preventDefault(); undoZoom(); });
+  svg.addEventListener('pointerdown', (e)=>{
+    if(e.button !== 0) return;
+    const p = toSvg(e);
+    if(e.target && e.target.closest && e.target.closest('.probeHandle,.probeHit')){
+      e.preventDefault();
+      probeDragging = true;
+      try{ svg.setPointerCapture(e.pointerId); }catch(_e){}
+      return;
+    }
+    if(!inside(p)) return;
+    e.preventDefault();
+    start = {x:clamp(p.x,left,left+width), y:clamp(p.y,top,top+height)};
+    rect = document.createElementNS(ns, 'rect');
+    rect.setAttribute('fill', 'rgba(37,99,235,0.14)');
+    rect.setAttribute('stroke', '#2563eb');
+    rect.setAttribute('stroke-width', '1.5');
+    rect.setAttribute('stroke-dasharray', '5 4');
+    rect.setAttribute('pointer-events','none');
+    svg.appendChild(rect);
+    setRect(start,start);
+    try{ svg.setPointerCapture(e.pointerId); }catch(_e){}
+  });
+  svg.addEventListener('pointermove', (e)=>{
+    if(probeDragging){
+      const p = toSvg(e);
+      const angle = angleFromPoint(p);
+      state.probe = {angle};
+      moveProbeDom(svg, xFromAngle(angle), angle);
+      renderProbeTable();
+      return;
+    }
+    if(!start || !rect) return;
+    const p = toSvg(e);
+    const now = {x:clamp(p.x,left,left+width), y:clamp(p.y,top,top+height)};
+    setRect(start,now);
+  });
+  svg.addEventListener('pointerup', (e)=>{
+    if(probeDragging){
+      probeDragging = false;
+      const p = toSvg(e);
+      setProbeAngle(angleFromPoint(p), {snap:false, render:true});
+      return;
+    }
+    if(!start || !rect) return;
+    const p0 = start;
+    const p = toSvg(e);
+    const p1 = {x:clamp(p.x,left,left+width), y:clamp(p.y,top,top+height)};
+    const w = Math.abs(p1.x-p0.x), h = Math.abs(p1.y-p0.y);
+    rect.remove(); rect = null; start = null;
+    if(w < 10 || h < 10){
+      setProbeAngle(angleFromPoint(p1), {render:true});
+      return;
+    }
+    const xa = xMin + (Math.min(p0.x,p1.x) - left) / width * (xMax - xMin);
+    const xb = xMin + (Math.max(p0.x,p1.x) - left) / width * (xMax - xMin);
+    const yTopData = yMax - (Math.min(p0.y,p1.y) - top) / height * (yMax - yMin);
+    const yBottomData = yMax - (Math.max(p0.y,p1.y) - top) / height * (yMax - yMin);
+    recordUndoPoint();
+    state.zoomHistory.push(currentZoomSnapshot());
+    state.zoomView = {xMin: Math.min(xa, xb), xMax: Math.max(xa, xb), yMin: Math.min(yBottomData, yTopData), yMax: Math.max(yBottomData, yTopData)};
+    render();
+  });
+}
+
+function handleEditEvent(e){
+  commitEditStartSnapshot();
+  const t = e.target;
+  const type = t.dataset.type;
+  const i = Number(t.dataset.i);
+  if(!type || !Number.isFinite(i)) return;
+  if(e.type === 'click' && !['meas-up','meas-down','meas-del'].includes(type)) return;
+  if(type === 'meas-up'){ reorderMeasured(i, i - 1); return; }
+  if(type === 'meas-down'){ reorderMeasured(i, i + 1); return; }
+  if(type === 'meas-del'){ deleteMeasured(i); return; }
+
+  let fullRender = false;
+  if(type === 'meas-use') state.measured[i].visible = t.checked;
+  if(type === 'meas-name' || type === 'meas-comment' || type === 'meas-label') {
+    state.measured[i].name = t.value;
+    state.measured[i].displayName = t.value;
+    state.measured[i].comment = t.value;
+  }
+  if(type === 'meas-ref'){
+    const rid = t.dataset.ref;
+    if(!Array.isArray(state.measured[i].activeRefs)) state.measured[i].activeRefs = [];
+    const set = new Set(state.measured[i].activeRefs);
+    if(t.checked) set.add(rid); else set.delete(rid);
+    state.measured[i].activeRefs = [...set];
+  }
+  if(type === 'ref-use') state.refs[i].visible = t.checked;
+  if(type === 'ref-label') {
+    state.refs[i].displayName = t.value;
+    if(e.type === 'change') fullRender = true;
+  }
+  if(type === 'ref-color') state.refs[i].color = t.value;
+  if(type === 'ref-marker') state.refs[i].marker = t.value;
+
+  if(fullRender) render();
+  else renderOutputOnly();
+}
+
+
+$('measEditTable').addEventListener('input', handleEditEvent);
+$('measEditTable').addEventListener('change', handleEditEvent);
+$('measEditTable').addEventListener('click', handleEditEvent);
+$('refEditTable').addEventListener('input', handleEditEvent);
+$('refEditTable').addEventListener('change', handleEditEvent);
+$('candidateSampleSelect').addEventListener('change', renderTables);
+$('layoutRatio').addEventListener('input', applyLayoutRatio);
+$('layoutRatio').addEventListener('change', applyLayoutRatio);
+SETTING_IDS.forEach(id => {
+  if(!$(id)) return;
+  $(id).addEventListener('input', e => { commitEditStartSnapshot(); updateMarkerScaleLabel(); render(); });
+  $(id).addEventListener('change', e => { commitEditStartSnapshot(); updateMarkerScaleLabel(); render(); });
+});
+$('loadBtn').addEventListener('click', loadFiles);
+if($('loadMHBtn')) $('loadMHBtn').addEventListener('click', loadMHFiles);
+if($('loadMTBtn')) $('loadMTBtn').addEventListener('click', loadMTFiles);
+if($('mhEditTable')){ $('mhEditTable').addEventListener('input', handleMHEditEvent); $('mhEditTable').addEventListener('change', handleMHEditEvent); $('mhEditTable').addEventListener('click', handleMHEditEvent); }
+if($('mtEditTable')){ $('mtEditTable').addEventListener('input', handleMTEditEvent); $('mtEditTable').addEventListener('change', handleMTEditEvent); $('mtEditTable').addEventListener('click', handleMTEditEvent); }
+$('restoreBuiltins').addEventListener('click', ()=>{ recordUndoPoint(); restoreBuiltinRefs(true); });
+$('demoBtn').addEventListener('click', useDemo);
+$('clearBtn').addEventListener('click', ()=>{ recordUndoPoint(); state.measured=[]; state.analyses=[]; state.lastSvgText=''; render(); });
+if($('clearMHBtn')) $('clearMHBtn').addEventListener('click', clearMH);
+if($('clearMTBtn')) $('clearMTBtn').addEventListener('click', clearMT);
+$('renderBtn').addEventListener('click', render);
+if($('resetZoom')) $('resetZoom').addEventListener('click', ()=>{ recordUndoPoint(); resetZoom(); });
+if($('undoBtn')) $('undoBtn').addEventListener('click', undoAction);
+if($('redoBtn')) $('redoBtn').addEventListener('click', redoAction);
+if($('clearProbe')) $('clearProbe').addEventListener('click', clearProbeMarker);
+$('saveSvg').addEventListener('click', ()=> { const svgText = exportSvgText(); if(svgText) downloadText(`${currentGraphStem()}.svg`, svgText, 'image/svg+xml'); });
+$('savePng').addEventListener('click', savePng);
+$('saveCsv').addEventListener('click', saveCsv);
+$('saveProject').addEventListener('click', exportProject);
+$('loadProject').addEventListener('click', ()=>$('projectFile').click());
+$('projectFile').addEventListener('change', e=>{ const f=e.target.files && e.target.files[0]; if(f){ recordUndoPoint(); importProjectFile(f).catch(err => alert('プロジェクト読込に失敗しました: ' + err.message)); e.target.value = ''; } });
+if($('saveRefLibrary')) $('saveRefLibrary').addEventListener('click', exportReferenceLibrary);
+if($('loadRefLibrary')) $('loadRefLibrary').addEventListener('click', ()=>$('refLibraryFile').click());
+if($('refLibraryFile')) $('refLibraryFile').addEventListener('change', e=>{ const f=e.target.files && e.target.files[0]; if(f){ recordUndoPoint(); importReferenceLibraryFile(f).catch(err => alert('参照データ読込に失敗しました: ' + err.message)); e.target.value = ''; } });
+document.addEventListener('focusin', e => {
+  const t = e.target;
+  if(!t || !['INPUT','SELECT','TEXTAREA'].includes(t.tagName)) return;
+  if(t.type === 'file') return;
+  if(!state.editStartSnapshot) state.editStartSnapshot = makeHistorySnapshot();
+});
+document.addEventListener('keydown', e => {
+  const key = String(e.key || '').toLowerCase();
+  const mod = e.ctrlKey || e.metaKey;
+  if(!mod) return;
+  if(key === 'z' && !e.shiftKey){ e.preventDefault(); undoAction(); }
+  else if(key === 'y' || (key === 'z' && e.shiftKey)){ e.preventDefault(); redoAction(); }
+});
+initControlTabs();
+restoreBuiltinRefs(false);
+ensureMHState();
+ensureMTState();
+updateMarkerScaleLabel();
+updateUndoRedoButtons();
 </script>
 </body>
 </html>
