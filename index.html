@@ -21,8 +21,11 @@
     .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 10px rgba(0,0,0,.04)}
     .controls{padding:16px;overflow:auto;max-height:calc(100vh - 108px)}
     .chartwrap{padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
-    fieldset{border:1px solid var(--line);border-radius:12px;margin:0 0 14px;padding:12px}
+    fieldset{border:1px solid var(--line);border-radius:12px;margin:0 0 16px;padding:14px}
     legend{font-weight:700;font-size:13px;padding:0 6px}
+    legend{display:flex;align-items:center;gap:8px}
+    .collapseBtn{border:1px solid #d4d4ca;background:#efefe8;color:#111;border-radius:999px;padding:2px 7px;font-size:11px;font-weight:700}
+    fieldset[data-collapsed="true"] > :not(legend){display:none!important}
     label{display:block;margin:8px 0 4px;font-size:13px;font-weight:600}
     input[type="number"],input[type="text"],select,textarea{width:100%;border:1px solid #cfcfc8;border-radius:8px;padding:8px;background:#fff;font:inherit;font-size:13px}
     input[type="file"]{width:100%;font-size:12px}
@@ -36,6 +39,12 @@
     button.secondary{background:#efefe8;color:#111;border:1px solid #d4d4ca}
     button:disabled{opacity:.45;cursor:not-allowed}
     .buttonbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .quickActions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 12px}
+    .quickActions button{min-height:38px}
+    .modeButtons{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .modeButtons button{background:#f1f1ea;color:#111;border:1px solid #d9d9d0}
+    .modeButtons button.active{background:#111;color:#fff;border-color:#111}
+    .sectionLabel{margin:14px 0 8px;padding:6px 8px;border-left:4px solid #111;background:#f8f8f1;font-size:12px;font-weight:800;color:#333}
     #svgHost{width:100%;min-height:430px;max-height:68vh;border:1px solid var(--line);border-radius:12px;background:#fff;display:grid;place-items:center;overflow:auto;position:relative}
     #svgHost svg{max-width:100%;height:auto;display:block;user-select:none;touch-action:none}
     .status{font-size:13px;color:var(--muted);line-height:1.55}
@@ -76,7 +85,7 @@
     .probeHandle{cursor:ew-resize;pointer-events:all}
     .probeHit{stroke:transparent;stroke-width:18;fill:none;cursor:ew-resize;pointer-events:stroke}
 
-    .modeBox{border:1px solid var(--line);border-radius:14px;background:#fbfbf7;padding:10px 12px;margin:0 0 12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
+    .modeBox{border:1px solid var(--line);border-radius:14px;background:#fbfbf7;padding:12px;margin:0 0 12px;display:grid;grid-template-columns:1fr;gap:10px;align-items:end}
     .modeBox label{margin:0 0 4px}
     .modeBox .small{align-self:center}
     .mhColor{width:54px}
@@ -87,7 +96,7 @@
     .mtTable input[type="text"]{min-width:150px}
     .mtTable input[type="number"]{min-width:84px}
     .mtTable select{min-width:130px}
-    @media(max-width:1080px){main{grid-template-columns:1fr}.controls{max-height:none}.tables{grid-template-columns:1fr}.modeBox{grid-template-columns:1fr}}
+    @media(max-width:1080px){main{grid-template-columns:1fr}.controls{max-height:none}.tables{grid-template-columns:1fr}.modeBox{grid-template-columns:1fr}.quickActions{grid-template-columns:1fr 1fr}}
   </style>
 </head>
 <body>
@@ -106,16 +115,27 @@
             <option value="mt">MT グラフ</option>
           </select>
         </div>
+        <div class="modeButtons" aria-label="XRD MT MH mode">
+          <button type="button" data-mode-button="xrd" class="active">XRD</button>
+          <button type="button" data-mode-button="mt">MT</button>
+          <button type="button" data-mode-button="mh">MH</button>
+        </div>
         <div class="small">XRD、MH、MTを同じHTML内で切り替えます。保存されるプロジェクトには全モードの作業状態が入ります。</div>
       </div>
+      <div class="quickActions" aria-label="主要操作">
+        <button type="button" data-quick-action="load">読み込み</button>
+        <button type="button" data-quick-action="saveSvg" class="secondary">SVG保存</button>
+        <button type="button" data-quick-action="savePng" class="secondary">PNG保存</button>
+        <button type="button" data-quick-action="resetZoom" class="secondary">ズーム解除</button>
+      </div>
       <div class="controlTabs" aria-label="設定カテゴリ">
-        <button type="button" class="active" data-tab-button="files">ファイル/データ</button>
-        <button type="button" data-tab-button="mh">MHグラフ</button>
-        <button type="button" data-tab-button="mt">MTグラフ</button>
-        <button type="button" data-tab-button="graph">図の体裁</button>
+        <button type="button" class="active" data-tab-button="files">ファイル</button>
+        <button type="button" data-tab-button="mh">MH設定</button>
+        <button type="button" data-tab-button="mt">MT設定</button>
+        <button type="button" data-tab-button="graph">図設定</button>
         <button type="button" data-tab-button="refs">参照マーカー</button>
         <button type="button" data-tab-button="probe">ピーク調査</button>
-        <button type="button" data-tab-button="id">同定</button>
+        <button type="button" data-tab-button="id">解析</button>
         <button type="button" data-tab-button="save">保存</button>
       </div>
       <fieldset data-tab="files">
@@ -184,6 +204,7 @@
       <fieldset data-tab="mh">
         <legend>MHデータ・表示設定</legend>
         <div class="mhHint">VSMファイルの <span class="mono">sample weight</span> を読んで、M(emu) を質量で割って emu/g に換算します。H(Oe) は kOe に自動変換します。複数ファイルは同じ軸上に重ね描きされます。</div>
+        <div class="sectionLabel">軸範囲</div>
         <div class="grid3">
           <div><label>H min / kOe</label><input id="mhXMin" type="number" value="-15" step="0.5"></div>
           <div><label>H max / kOe</label><input id="mhXMax" type="number" value="15" step="0.5"></div>
@@ -199,6 +220,7 @@
           <div><label>平滑化</label><select id="mhSmooth"><option value="0" selected>なし</option><option value="3">3点</option><option value="5">5点</option><option value="9">9点</option></select></div>
           <div><label>点の間引き</label><input id="mhPointStep" type="number" value="1" min="1" step="1"></div>
         </div>
+        <div class="sectionLabel">図設定</div>
         <div class="grid2">
           <div><label>X軸ラベル</label><input id="mhXAxisLabel" type="text" value="Magnetic field (kOe)"></div>
           <div><label>Y軸ラベル</label><input id="mhYAxisLabel" type="text" value="Magnetization (emu/g)"></div>
@@ -227,6 +249,7 @@
           <div class="row"><input id="mhShowZero" type="checkbox" checked><label for="mhShowZero" style="margin:0;font-weight:500">0ラインを表示</label></div>
           <div class="row"><input id="mhMirrorTicks" type="checkbox" checked><label for="mhMirrorTicks" style="margin:0;font-weight:500">上・右にも内向き目盛り</label></div>
         </div>
+        <div class="sectionLabel">重ね描きデータ</div>
         <label>読み込み済みMHデータ</label>
         <div class="editbox"><table id="mhEditTable" class="mhTable"><thead><tr><th class="center">使用</th><th>順番</th><th>色</th><th>元ファイル</th><th>凡例名</th><th>質量(g)</th><th>点数</th></tr></thead><tbody></tbody></table></div>
         <p class="small">凡例名には <span class="mono">T_s</span>、<span class="mono">Fe^{3+}</span>、<span class="mono">\theta</span> なども使えます。左ドラッグでズーム、右クリックで1つ前のズームに戻ります。</p>
@@ -235,6 +258,7 @@
       <fieldset data-tab="mt">
         <legend>MTデータ・表示設定</legend>
         <div class="mtHint">MTのVSMファイルから <span class="mono">Temp.(℃)</span> と <span class="mono">M(emu)</span> を読み込みます。一次微分・二次微分は表示ON/OFF可能で、T<sub>C</sub>は二次微分の極大値から候補を自動提案します。</div>
+        <div class="sectionLabel">軸範囲</div>
         <div class="grid3">
           <div><label>T min / ℃</label><input id="mtXMin" type="number" value="0" step="10"></div>
           <div><label>T max / ℃</label><input id="mtXMax" type="number" value="600" step="10"></div>
@@ -250,6 +274,7 @@
           <div><label>MT平滑化 window</label><input id="mtSmooth" type="number" value="41" step="2" min="1"></div>
           <div><label>点の間引き</label><input id="mtPointStep" type="number" value="1" min="1" step="1"></div>
         </div>
+        <div class="sectionLabel">微分・Tc解析</div>
         <div class="grid3">
           <div class="row"><input id="mtShowD1" type="checkbox"><label for="mtShowD1" style="margin:0;font-weight:500">dM/dTを表示</label></div>
           <div class="row"><input id="mtShowD2" type="checkbox"><label for="mtShowD2" style="margin:0;font-weight:500">d²M/dT²を表示</label></div>
@@ -265,6 +290,7 @@
           <div><label>T<sub>C</sub>探索 Tmax / ℃</label><input id="mtTcMax" type="number" value="550" step="10"></div>
           <div><label>T<sub>C</sub>候補数</label><input id="mtTcCandidateCount" type="number" value="3" step="1" min="1" max="10"></div>
         </div>
+        <div class="sectionLabel">図設定</div>
         <div class="grid2">
           <div><label>X軸ラベル</label><input id="mtXAxisLabel" type="text" value="Temperature (°C)"></div>
           <div><label>Y軸ラベル</label><input id="mtYAxisLabel" type="text" value="Magnetization (arb.units)"></div>
@@ -293,6 +319,7 @@
           <div class="row"><input id="mtShowZero" type="checkbox"><label for="mtShowZero" style="margin:0;font-weight:500">0ラインを表示</label></div>
           <div class="row"><input id="mtMirrorTicks" type="checkbox" checked><label for="mtMirrorTicks" style="margin:0;font-weight:500">上・右にも内向き目盛り</label></div>
         </div>
+        <div class="sectionLabel">Tc採用</div>
         <label>読み込み済みMTデータ</label>
         <div class="editbox"><table id="mtEditTable" class="mtTable"><thead><tr><th class="center">使用</th><th>順番</th><th>色</th><th>元ファイル</th><th>凡例名</th><th>質量(g)</th><th>T<sub>C</sub>候補</th><th>採用</th><th>点数</th></tr></thead><tbody></tbody></table></div>
         <p class="small">候補のT<sub>C</sub>を採用すると、グラフ内に矢印と枠付きラベル <span class="mono">T_C = 377°C</span> のように表示します。左ドラッグでズーム、右クリックで1つ前のズームに戻ります。</p>
@@ -1351,11 +1378,61 @@ function setControlTab(tab){
   buttons.forEach(b => b.classList.toggle('active', b.dataset.tabButton === valid));
   panes.forEach(p => { p.hidden = p.dataset.tab !== valid; });
 }
+function syncModeButtons(){
+  const mode = currentMode();
+  document.querySelectorAll('[data-mode-button]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.modeButton === mode);
+  });
+}
+function setGraphMode(mode){
+  if(!['xrd','mt','mh'].includes(mode)) return;
+  if($('graphMode')) $('graphMode').value = mode;
+  syncModeButtons();
+  setControlTab(mode === 'xrd' ? 'files' : mode);
+  render();
+}
+function initCollapsibleFieldsets(){
+  document.querySelectorAll('fieldset').forEach(fs => {
+    const legend = fs.querySelector('legend');
+    if(!legend || legend.querySelector('.collapseBtn')) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'collapseBtn';
+    btn.textContent = '折りたたみ';
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const collapsed = fs.dataset.collapsed === 'true';
+      fs.dataset.collapsed = collapsed ? 'false' : 'true';
+      btn.textContent = collapsed ? '折りたたみ' : '開く';
+    });
+    legend.appendChild(btn);
+  });
+}
 function initControlTabs(){
   document.querySelectorAll('[data-tab-button]').forEach(btn => {
     btn.addEventListener('click', () => setControlTab(btn.dataset.tabButton));
   });
+  document.querySelectorAll('[data-mode-button]').forEach(btn => {
+    btn.addEventListener('click', () => setGraphMode(btn.dataset.modeButton));
+  });
+  document.querySelectorAll('[data-quick-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.quickAction;
+      const mode = currentMode();
+      if(action === 'load') $(mode === 'mh' ? 'loadMHBtn' : mode === 'mt' ? 'loadMTBtn' : 'loadBtn')?.click();
+      if(action === 'saveSvg') $('saveSvg')?.click();
+      if(action === 'savePng') $('savePng')?.click();
+      if(action === 'resetZoom') $('resetZoom')?.click();
+    });
+  });
+  $('graphMode')?.addEventListener('change', () => {
+    syncModeButtons();
+    const mode = currentMode();
+    setControlTab(mode === 'xrd' ? 'files' : mode);
+  });
   setControlTab('files');
+  syncModeButtons();
+  initCollapsibleFieldsets();
 }
 
 function applyLayoutRatio(){
@@ -1407,6 +1484,7 @@ function renderOutputOnly(){
 }
 
 function render(){
+  syncModeButtons();
   if(currentMode() === 'mh'){
     ensureMHState();
     renderMHEditTables();
